@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>账户管理系统</title>
+    <style>
+        :root {
+            --bg-color: #f4f4f9;
+            --text-color: #333;
+            --container-bg: #ffffff;
+            --input-bg: #ffffff;
+            --border-color: #ddd;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --container-bg: #1e1e1e;
+            --input-bg: #2d2d2d;
+            --border-color: #444;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            transition: background-color 0.3s, color 0.3s;
+            position: relative; /* 为了右上角定位 */
+        }
+
+        /* 右上角模式切换按钮 */
+        .theme-switch-wrapper {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+
+        .theme-btn {
+            background: none;
+            border: 1px solid var(--text-color);
+            color: var(--text-color);
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+
+        .container {
+            background-color: var(--container-bg);
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 800px;
+            transition: background-color 0.3s;
+        }
+
+        h2 { text-align: center; margin-bottom: 20px; }
+
+        /* 表单样式 */
+        .form-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            background-color: var(--input-bg);
+            color: var(--text-color);
+        }
+
+        button.add-btn {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button.add-btn:hover { background-color: #218838; }
+
+        /* 表格样式 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .delete-btn {
+            color: #dc3545;
+            text-decoration: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .delete-btn:hover { text-decoration: underline; }
+
+        /* 弹窗样式 (Modal) */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-box {
+            background: var(--container-bg);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            width: 300px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .modal-box input {
+            width: 80%;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .btn-confirm { background-color: #007bff; color: white; padding: 5px 15px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-cancel { background-color: #6c757d; color: white; padding: 5px 15px; border: none; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="theme-switch-wrapper">
+        <button class="theme-btn" onclick="toggleTheme()">☀️/🌙 模式切换</button>
+    </div>
+
+    <div class="container">
+        <h2>账户管理面板</h2>
+
+        <form id="addForm" action="/add" method="POST" onsubmit="return false;">
+            <div class="form-group">
+                <input type="text" name="wallet_address" placeholder="Add (地址)" required>
+                <input type="text" name="uid" placeholder="UID" required>
+                <button type="button" class="add-btn" onclick="triggerAuth('add')">添加账户</button>
+            </div>
+        </form>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Add</th> <th>UID</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for account in accounts %}
+                <tr>
+                    <td>{{ account[0] }}</td>
+                    <td>{{ account[1] }}</td>
+                    <td>{{ account[2] }}</td>
+                    <td>
+                        <span class="delete-btn" onclick="triggerAuth('delete', '{{ account[0] }}')">删除</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="modal-overlay" id="authModal">
+        <div class="modal-box">
+            <h3>安全验证</h3>
+            <p>请输入操作密码：</p>
+            <input type="password" id="authPassword" placeholder="***" maxlength="10">
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeModal()">取消</button>
+                <button class="btn-confirm" onclick="confirmAction()">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 模式切换逻辑 ---
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute("data-theme");
+            const newTheme = currentTheme === "dark" ? "light" : "dark";
+            document.documentElement.setAttribute("data-theme", newTheme);
+            localStorage.setItem("theme", newTheme);
+        }
+
+        // 初始化读取本地存储的主题
+        const savedTheme = localStorage.getItem("theme") || "light";
+        document.documentElement.setAttribute("data-theme", savedTheme);
+
+        // --- 2. 安全验证逻辑 ---
+        let pendingAction = null; // 存储当前等待执行的操作
+        let pendingId = null;     // 如果是删除操作，存储ID
+
+        const modal = document.getElementById('authModal');
+        const passInput = document.getElementById('authPassword');
+        const addForm = document.getElementById('addForm');
+
+        // 打开验证窗口
+        function triggerAuth(action, id = null) {
+            pendingAction = action;
+            pendingId = id;
+            passInput.value = ""; // 清空输入框
+            modal.style.display = 'flex';
+            passInput.focus();
+        }
+
+        // 关闭验证窗口
+        function closeModal() {
+            modal.style.display = 'none';
+            pendingAction = null;
+            pendingId = null;
+        }
+
+        // 确认密码
+        function confirmAction() {
+            const password = passInput.value;
+
+            if (password === "110") {
+                // 密码正确，执行操作
+                if (pendingAction === 'add') {
+                    addForm.submit(); // 提交表单
+                } else if (pendingAction === 'delete' && pendingId) {
+                    window.location.href = `/delete/${pendingId}`; // 跳转删除链接
+                }
+                closeModal();
+            } else {
+                alert("密码错误！");
+                passInput.value = "";
+                passInput.focus();
+            }
+        }
+
+        // 支持回车键确认
+        passInput.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                confirmAction();
+            }
+        });
+    </script>
+</body>
+</html>
