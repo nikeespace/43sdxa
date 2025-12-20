@@ -41,7 +41,7 @@ def get_global_accounts():
     if row: return json.loads(row[0])
     return []
 
-# --- HTML 模板 (修复按钮点击问题) ---
+# --- HTML 模板 ---
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="zh">
@@ -63,6 +63,7 @@ HTML_TEMPLATE = '''
             --addr-card-bg: #263544;
             --addr-text: #bdc3c7;
             --btn-bg: #e0e0e0;
+            --highlight: #3498db;
         }
 
         [data-theme="dark"] {
@@ -77,6 +78,7 @@ HTML_TEMPLATE = '''
             --addr-card-bg: #1c2329;
             --addr-text: #888;
             --btn-bg: #333;
+            --highlight: #5dade2;
         }
 
         * { box-sizing: border-box; }
@@ -91,41 +93,22 @@ HTML_TEMPLATE = '''
             position: relative;
         }
         
-        /* 右上角开关 (修复版：加了 z-index) */
+        /* 右上角开关 */
         .theme-switch-wrapper { 
-            position: absolute; 
-            top: 15px; 
-            right: 20px; 
-            z-index: 9999; /* 关键：确保浮在最上面 */
+            position: absolute; top: 15px; right: 20px; z-index: 9999; 
         }
         .theme-btn { 
-            background: var(--btn-bg); 
-            border: 1px solid var(--border-color); 
-            color: var(--text-color); 
-            padding: 8px 15px; 
-            cursor: pointer; 
-            border-radius: 20px; 
-            font-size: 14px;
-            font-weight: bold;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            transition: all 0.2s;
+            background: var(--btn-bg); border: 1px solid var(--border-color); color: var(--text-color); 
+            padding: 8px 15px; cursor: pointer; border-radius: 20px; font-size: 14px; font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: all 0.2s;
         }
         .theme-btn:hover { transform: scale(1.05); }
-        .theme-btn:active { transform: scale(0.95); }
         
         /* --- 👈 左侧边栏 --- */
         .sidebar { 
-            width: 380px; 
-            background: var(--sidebar-bg); 
-            color: var(--sidebar-text); 
-            padding: 20px; 
-            display: flex; 
-            flex-direction: column; 
-            position: fixed; 
-            height: 100%; 
-            overflow-y: auto; 
-            box-shadow: 2px 0 10px rgba(0,0,0,0.2); 
-            z-index: 100;
+            width: 380px; background: var(--sidebar-bg); color: var(--sidebar-text); padding: 20px; 
+            display: flex; flex-direction: column; position: fixed; height: 100%; overflow-y: auto; 
+            box-shadow: 2px 0 10px rgba(0,0,0,0.2); z-index: 100;
         }
         .sidebar h3 { margin-top: 0; border-bottom: 1px solid #34495e; padding-bottom: 10px; margin-bottom: 15px; font-size: 1.1em; }
         .sidebar-desc { font-size: 0.8em; color: #bdc3c7; margin-bottom: 10px; }
@@ -136,16 +119,26 @@ HTML_TEMPLATE = '''
         .account-editor { width: 100%; height: 80px; background: #ecf0f1; border: none; border-radius: 4px; padding: 8px; margin-bottom: 8px; font-family: monospace; resize: vertical; font-size: 0.9em; }
         .btn-save-settings { width: 100%; padding: 8px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em; }
         
+        /* 地址本样式调整 */
         .addr-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
         .addr-card { background: var(--addr-card-bg); padding: 12px; border-radius: 6px; font-size: 0.85em; border: 1px solid rgba(255,255,255,0.1); }
-        .addr-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: bold; color: #3498db; border-bottom: 1px dashed #3e5366; padding-bottom: 5px; font-size: 1.05em; }
+        
+        /* 账户名称字体变大 */
+        .addr-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed #3e5366; padding-bottom: 5px; }
+        .addr-name { font-size: 1.3em; font-weight: 800; color: var(--highlight); } 
+        
+        .addr-actions { display: flex; gap: 10px; }
+        .btn-icon { cursor: pointer; font-size: 1.2em; line-height: 1; transition: 0.2s; }
+        .btn-del-addr { color: #e74c3c; }
+        .btn-edit-addr { color: #f1c40f; }
+        .btn-edit-addr:hover { color: #f39c12; }
+
         .addr-row { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; color: var(--addr-text); }
         .addr-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; font-family: monospace; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px; }
         
         .btn-copy-icon { background: none; border: 1px solid #576d80; color: #bdc3c7; cursor: pointer; border-radius: 3px; font-size: 0.8em; padding: 1px 6px; transition: 0.2s; white-space: nowrap; }
         .btn-copy-icon:hover { background: #3498db; color: white; border-color: #3498db; }
         .btn-copy-icon.copied { background: #2ecc71; border-color: #2ecc71; color: white; }
-        .btn-del-addr { color: #e74c3c; text-decoration: none; font-weight: bold; cursor: pointer; font-size: 1.2em; line-height: 1; }
 
         .btn-show-form { width: 100%; background: #27ae60; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px; transition: 0.2s; }
         .add-addr-container { display: none; margin-top: 10px; background: var(--addr-card-bg); padding: 10px; border-radius: 6px; border: 1px solid #3e5366; }
@@ -199,11 +192,11 @@ HTML_TEMPLATE = '''
 
         /* 弹窗样式 */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 10000; }
-        .modal-box { background: var(--card-bg); padding: 20px; border-radius: 8px; text-align: center; width: 300px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); border: 1px solid var(--border-color); }
-        .modal-box input { width: 80%; margin: 15px 0; text-align: center; }
-        .modal-buttons { display: flex; justify-content: space-around; }
-        .btn-confirm { background-color: #007bff; color: white; padding: 5px 15px; border: none; border-radius: 4px; cursor: pointer; }
-        .btn-cancel { background-color: #6c757d; color: white; padding: 5px 15px; border: none; border-radius: 4px; cursor: pointer; }
+        .modal-box { background: var(--card-bg); padding: 20px; border-radius: 8px; text-align: center; width: 320px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); border: 1px solid var(--border-color); }
+        .modal-box input { width: 90%; margin: 10px 0; text-align: center; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-color); }
+        .modal-buttons { display: flex; justify-content: space-around; margin-top: 15px; }
+        .btn-confirm { background-color: #007bff; color: white; padding: 8px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-cancel { background-color: #6c757d; color: white; padding: 8px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
 
         @media (max-width: 768px) {
             body { flex-direction: column; }
@@ -236,8 +229,16 @@ HTML_TEMPLATE = '''
                 {% for item in address_book %}
                 <div class="addr-card">
                     <div class="addr-header">
-                        <span>{{ item.name }}</span>
-                        <span class="btn-del-addr" onclick="triggerAuth('delete_addr', {{ loop.index0 }})">×</span>
+                        <span class="addr-name">{{ item.name }}</span>
+                        <div class="addr-actions">
+                            <span class="btn-icon btn-edit-addr" 
+                                  data-index="{{ loop.index0 }}"
+                                  data-name="{{ item.name }}"
+                                  data-addr="{{ item.addr }}"
+                                  data-uid="{{ item.uid }}"
+                                  onclick="openEditAddrModal(this)">✏️</span>
+                            <span class="btn-icon btn-del-addr" onclick="triggerAuth('delete_addr', {{ loop.index0 }})">×</span>
+                        </div>
                     </div>
                     {% if item.addr %}
                     <div class="addr-row">
@@ -268,7 +269,7 @@ HTML_TEMPLATE = '''
                 </form>
             </div>
         </div>
-        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v3.6 (Fixed)</div>
+        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v3.7 (Edit)</div>
     </aside>
 
     <main class="main-content">
@@ -343,9 +344,29 @@ HTML_TEMPLATE = '''
             <p>请输入操作密码：</p>
             <input type="password" id="authPassword" placeholder="***" maxlength="10">
             <div class="modal-buttons">
-                <button class="btn-cancel" onclick="closeModal()">取消</button>
+                <button class="btn-cancel" onclick="closeModal('authModal')">取消</button>
                 <button class="btn-confirm" onclick="confirmAction()">确认</button>
             </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="editAddrModal">
+        <div class="modal-box">
+            <h3>✏️ 修改账户信息</h3>
+            <form id="editAddrForm" action="/edit_addr" method="post" onsubmit="event.preventDefault(); triggerAuth('edit_addr', this);">
+                <input type="hidden" name="index" id="edit_index">
+                <div style="text-align:left; width:90%; margin:auto; font-size:0.9em; opacity:0.7;">备注名:</div>
+                <input type="text" name="name" id="edit_name" placeholder="备注名" required>
+                <div style="text-align:left; width:90%; margin:auto; font-size:0.9em; opacity:0.7;">Address:</div>
+                <input type="text" name="addr" id="edit_addr_val" placeholder="Add (地址)">
+                <div style="text-align:left; width:90%; margin:auto; font-size:0.9em; opacity:0.7;">UID:</div>
+                <input type="text" name="uid" id="edit_uid_val" placeholder="UID">
+                
+                <div class="modal-buttons">
+                    <button type="button" class="btn-cancel" onclick="closeModal('editAddrModal')">取消</button>
+                    <button type="submit" class="btn-confirm">保存修改</button>
+                </div>
+            </form>
         </div>
     </div>
     
@@ -357,13 +378,8 @@ HTML_TEMPLATE = '''
                 const newTheme = currentTheme === "dark" ? "light" : "dark";
                 document.documentElement.setAttribute("data-theme", newTheme);
                 localStorage.setItem("theme", newTheme);
-                console.log("Switched to " + newTheme);
-            } catch(e) {
-                console.error(e);
-            }
+            } catch(e) {}
         }
-        
-        // 页面加载时恢复主题
         document.addEventListener("DOMContentLoaded", function() {
             const savedTheme = localStorage.getItem("theme") || "light";
             document.documentElement.setAttribute("data-theme", savedTheme);
@@ -400,7 +416,25 @@ HTML_TEMPLATE = '''
             });
         }
 
-        // --- 安全验证 JS ---
+        // --- 编辑弹窗逻辑 ---
+        function openEditAddrModal(btn) {
+            // 获取按钮上的数据
+            const index = btn.dataset.index;
+            const name = btn.dataset.name;
+            const addr = btn.dataset.addr;
+            const uid = btn.dataset.uid;
+
+            // 填充到弹窗里
+            document.getElementById('edit_index').value = index;
+            document.getElementById('edit_name').value = name;
+            document.getElementById('edit_addr_val').value = addr;
+            document.getElementById('edit_uid_val').value = uid;
+
+            // 显示弹窗
+            document.getElementById('editAddrModal').style.display = 'flex';
+        }
+
+        // --- 安全验证逻辑 ---
         let pendingAction = null; 
         let pendingData = null;
 
@@ -410,12 +444,19 @@ HTML_TEMPLATE = '''
             pendingAction = action;
             pendingData = data; 
             passInput.value = ""; 
+            
+            // 如果是编辑，暂时隐藏编辑框，显示密码框
+            if (action === 'edit_addr') {
+                document.getElementById('editAddrModal').style.display = 'none';
+            }
+
             modal.style.display = 'flex';
             passInput.focus();
         }
 
-        function closeModal() {
-            document.getElementById('authModal').style.display = 'none';
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            // 如果是取消验证，且原本是编辑操作，要把编辑框显示回来吗？看需求，这里直接全关
             pendingAction = null;
             pendingData = null;
         }
@@ -429,8 +470,11 @@ HTML_TEMPLATE = '''
                     document.getElementById('realAddForm').submit();
                 } else if (pendingAction === 'delete_task') {
                     window.location.href = "/delete/" + pendingData;
+                } else if (pendingAction === 'edit_addr') {
+                    // 提交编辑表单
+                    document.getElementById('editAddrForm').submit();
                 }
-                closeModal();
+                closeModal('authModal');
             } else {
                 alert("密码错误！");
                 document.getElementById('authPassword').value = "";
@@ -517,6 +561,27 @@ def add_addr():
     current_list.append({'name': name, 'addr': addr, 'uid': uid})
     c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(current_list)))
     conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+# --- 新增：编辑地址路由 ---
+@app.route('/edit_addr', methods=['POST'])
+def edit_addr():
+    index = int(request.form['index'])
+    name = request.form['name']
+    addr = request.form['addr']
+    uid = request.form['uid']
+    
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',))
+    row = c.fetchone()
+    if row:
+        current_list = json.loads(row[0])
+        if 0 <= index < len(current_list):
+            current_list[index] = {'name': name, 'addr': addr, 'uid': uid}
+            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(current_list)))
+            conn.commit()
     conn.close()
     return redirect(url_for('index'))
 
