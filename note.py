@@ -41,7 +41,7 @@ def get_global_accounts():
     if row: return json.loads(row[0])
     return []
 
-# --- 融合了黑夜模式和密码验证的 HTML ---
+# --- HTML 模板 (修复按钮点击问题) ---
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="zh">
@@ -50,7 +50,7 @@ HTML_TEMPLATE = '''
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>任务分发控制台</title>
     <style>
-        /* --- 颜色变量定义 (支持黑夜模式) --- */
+        /* --- 颜色变量 --- */
         :root {
             --bg-color: #f4f4f9;
             --text-color: #333;
@@ -62,6 +62,7 @@ HTML_TEMPLATE = '''
             --shadow: rgba(0,0,0,0.05);
             --addr-card-bg: #263544;
             --addr-text: #bdc3c7;
+            --btn-bg: #e0e0e0;
         }
 
         [data-theme="dark"] {
@@ -75,6 +76,7 @@ HTML_TEMPLATE = '''
             --shadow: rgba(0,0,0,0.5);
             --addr-card-bg: #1c2329;
             --addr-text: #888;
+            --btn-bg: #333;
         }
 
         * { box-sizing: border-box; }
@@ -86,7 +88,30 @@ HTML_TEMPLATE = '''
             display: flex; 
             min-height: 100vh; 
             transition: background 0.3s, color 0.3s;
+            position: relative;
         }
+        
+        /* 右上角开关 (修复版：加了 z-index) */
+        .theme-switch-wrapper { 
+            position: absolute; 
+            top: 15px; 
+            right: 20px; 
+            z-index: 9999; /* 关键：确保浮在最上面 */
+        }
+        .theme-btn { 
+            background: var(--btn-bg); 
+            border: 1px solid var(--border-color); 
+            color: var(--text-color); 
+            padding: 8px 15px; 
+            cursor: pointer; 
+            border-radius: 20px; 
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: all 0.2s;
+        }
+        .theme-btn:hover { transform: scale(1.05); }
+        .theme-btn:active { transform: scale(0.95); }
         
         /* --- 👈 左侧边栏 --- */
         .sidebar { 
@@ -100,7 +125,7 @@ HTML_TEMPLATE = '''
             height: 100%; 
             overflow-y: auto; 
             box-shadow: 2px 0 10px rgba(0,0,0,0.2); 
-            transition: background 0.3s;
+            z-index: 100;
         }
         .sidebar h3 { margin-top: 0; border-bottom: 1px solid #34495e; padding-bottom: 10px; margin-bottom: 15px; font-size: 1.1em; }
         .sidebar-desc { font-size: 0.8em; color: #bdc3c7; margin-bottom: 10px; }
@@ -111,33 +136,25 @@ HTML_TEMPLATE = '''
         .account-editor { width: 100%; height: 80px; background: #ecf0f1; border: none; border-radius: 4px; padding: 8px; margin-bottom: 8px; font-family: monospace; resize: vertical; font-size: 0.9em; }
         .btn-save-settings { width: 100%; padding: 8px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em; }
         
-        /* 地址本样式 */
         .addr-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
         .addr-card { background: var(--addr-card-bg); padding: 12px; border-radius: 6px; font-size: 0.85em; border: 1px solid rgba(255,255,255,0.1); }
         .addr-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: bold; color: #3498db; border-bottom: 1px dashed #3e5366; padding-bottom: 5px; font-size: 1.05em; }
         .addr-row { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; color: var(--addr-text); }
-        
         .addr-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; font-family: monospace; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px; }
+        
         .btn-copy-icon { background: none; border: 1px solid #576d80; color: #bdc3c7; cursor: pointer; border-radius: 3px; font-size: 0.8em; padding: 1px 6px; transition: 0.2s; white-space: nowrap; }
         .btn-copy-icon:hover { background: #3498db; color: white; border-color: #3498db; }
         .btn-copy-icon.copied { background: #2ecc71; border-color: #2ecc71; color: white; }
-        
         .btn-del-addr { color: #e74c3c; text-decoration: none; font-weight: bold; cursor: pointer; font-size: 1.2em; line-height: 1; }
 
-        /* 折叠表单样式 */
         .btn-show-form { width: 100%; background: #27ae60; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px; transition: 0.2s; }
-        .btn-show-form:hover { background: #219150; }
         .add-addr-container { display: none; margin-top: 10px; background: var(--addr-card-bg); padding: 10px; border-radius: 6px; border: 1px solid #3e5366; }
         .add-addr-form { display: flex; flex-direction: column; gap: 8px; }
         .add-addr-form input { padding: 8px; border-radius: 4px; border: none; font-size: 0.9em; background: #ecf0f1; }
         .btn-submit-addr { background: #3498db; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: bold; }
 
         /* --- 👉 右侧主内容 --- */
-        .main-content { flex: 1; margin-left: 380px; padding: 40px; max-width: 1000px; position: relative; }
-        
-        /* 右上角开关 */
-        .theme-switch-wrapper { position: absolute; top: 20px; right: 20px; }
-        .theme-btn { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); padding: 5px 10px; cursor: pointer; border-radius: 5px; }
+        .main-content { flex: 1; margin-left: 380px; padding: 40px; max-width: 1000px; position: relative; z-index: 1; }
 
         h2 { text-align: center; margin-bottom: 30px; color: var(--text-color); }
         
@@ -181,7 +198,7 @@ HTML_TEMPLATE = '''
         .btn-update { background: #3498db; color: white; padding: 6px 15px; border: none; border-radius: 4px; cursor: pointer; }
 
         /* 弹窗样式 */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 2000; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 10000; }
         .modal-box { background: var(--card-bg); padding: 20px; border-radius: 8px; text-align: center; width: 300px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); border: 1px solid var(--border-color); }
         .modal-box input { width: 80%; margin: 15px 0; text-align: center; }
         .modal-buttons { display: flex; justify-content: space-around; }
@@ -191,102 +208,14 @@ HTML_TEMPLATE = '''
         @media (max-width: 768px) {
             body { flex-direction: column; }
             .sidebar { width: 100%; position: relative; height: auto; }
-            .main-content { margin-left: 0; padding: 20px; }
+            .main-content { margin-left: 0; padding: 20px; margin-top: 40px; }
+            .theme-switch-wrapper { top: 10px; right: 10px; }
         }
     </style>
-    <script>
-        // --- 模式切换 ---
-        function toggleTheme() {
-            const currentTheme = document.documentElement.getAttribute("data-theme");
-            const newTheme = currentTheme === "dark" ? "light" : "dark";
-            document.documentElement.setAttribute("data-theme", newTheme);
-            localStorage.setItem("theme", newTheme);
-        }
-        // 初始化主题
-        document.addEventListener("DOMContentLoaded", function() {
-            const savedTheme = localStorage.getItem("theme") || "light";
-            document.documentElement.setAttribute("data-theme", savedTheme);
-        });
-
-        // --- 旧功能 JS ---
-        function toggleEdit(id) {
-            var el = document.getElementById('edit-' + id);
-            el.style.display = el.style.display === 'block' ? 'none' : 'block';
-        }
-        function toggleAddrForm() {
-            var el = document.getElementById('addr-form-container');
-            var btn = document.getElementById('btn-toggle-addr');
-            if (el.style.display === 'block') {
-                el.style.display = 'none';
-                btn.innerText = '＋ 添加新备忘';
-            } else {
-                el.style.display = 'block';
-                btn.innerText = '－ 收起';
-            }
-        }
-        function copyContent(text, btnElement) {
-            navigator.clipboard.writeText(text).then(function() {
-                var originalText = btnElement.innerText;
-                var isIcon = btnElement.classList.contains('btn-copy-icon');
-                btnElement.innerText = isIcon ? "OK" : "✅ 已复制";
-                btnElement.classList.add('copied');
-                setTimeout(function() {
-                    btnElement.innerText = originalText;
-                    btnElement.classList.remove('copied');
-                }, 2000);
-            }, function(err) {
-                alert('复制失败，请手动复制');
-            });
-        }
-
-        // --- 安全验证 JS (密码 110) ---
-        let pendingAction = null; 
-        let pendingData = null;
-
-        function triggerAuth(action, data) {
-            const modal = document.getElementById('authModal');
-            const passInput = document.getElementById('authPassword');
-            pendingAction = action;
-            pendingData = data; // 可以是 ID 或 form 对象
-            passInput.value = ""; 
-            modal.style.display = 'flex';
-            passInput.focus();
-        }
-
-        function closeModal() {
-            document.getElementById('authModal').style.display = 'none';
-            pendingAction = null;
-            pendingData = null;
-        }
-
-        function confirmAction() {
-            const password = document.getElementById('authPassword').value;
-            if (password === "110") {
-                if (pendingAction === 'delete_addr') {
-                    window.location.href = "/delete_addr/" + pendingData;
-                } else if (pendingAction === 'add_addr') {
-                    document.getElementById('realAddForm').submit();
-                } else if (pendingAction === 'delete_task') {
-                    window.location.href = "/delete/" + pendingData;
-                }
-                closeModal();
-            } else {
-                alert("密码错误！");
-                document.getElementById('authPassword').value = "";
-            }
-        }
-        
-        // 绑定回车键
-        document.addEventListener("DOMContentLoaded", function() {
-            document.getElementById('authPassword').addEventListener("keypress", function(event) {
-                if (event.key === "Enter") confirmAction();
-            });
-        });
-    </script>
 </head>
 <body>
     <div class="theme-switch-wrapper">
-        <button class="theme-btn" onclick="toggleTheme()">☀️/🌙 切换</button>
+        <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">☀️/🌙 切换</button>
     </div>
 
     <aside class="sidebar">
@@ -339,8 +268,7 @@ HTML_TEMPLATE = '''
                 </form>
             </div>
         </div>
-
-        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v3.5 (Secure)</div>
+        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v3.6 (Fixed)</div>
     </aside>
 
     <main class="main-content">
@@ -420,17 +348,114 @@ HTML_TEMPLATE = '''
             </div>
         </div>
     </div>
+    
+    <script>
+        // --- 模式切换逻辑 ---
+        function toggleTheme() {
+            try {
+                const currentTheme = document.documentElement.getAttribute("data-theme");
+                const newTheme = currentTheme === "dark" ? "light" : "dark";
+                document.documentElement.setAttribute("data-theme", newTheme);
+                localStorage.setItem("theme", newTheme);
+                console.log("Switched to " + newTheme);
+            } catch(e) {
+                console.error(e);
+            }
+        }
+        
+        // 页面加载时恢复主题
+        document.addEventListener("DOMContentLoaded", function() {
+            const savedTheme = localStorage.getItem("theme") || "light";
+            document.documentElement.setAttribute("data-theme", savedTheme);
+        });
+
+        // --- 其他逻辑 ---
+        function toggleEdit(id) {
+            var el = document.getElementById('edit-' + id);
+            el.style.display = el.style.display === 'block' ? 'none' : 'block';
+        }
+        function toggleAddrForm() {
+            var el = document.getElementById('addr-form-container');
+            var btn = document.getElementById('btn-toggle-addr');
+            if (el.style.display === 'block') {
+                el.style.display = 'none';
+                btn.innerText = '＋ 添加新备忘';
+            } else {
+                el.style.display = 'block';
+                btn.innerText = '－ 收起';
+            }
+        }
+        function copyContent(text, btnElement) {
+            navigator.clipboard.writeText(text).then(function() {
+                var originalText = btnElement.innerText;
+                var isIcon = btnElement.classList.contains('btn-copy-icon');
+                btnElement.innerText = isIcon ? "OK" : "✅ 已复制";
+                btnElement.classList.add('copied');
+                setTimeout(function() {
+                    btnElement.innerText = originalText;
+                    btnElement.classList.remove('copied');
+                }, 2000);
+            }, function(err) {
+                alert('复制失败，请手动复制');
+            });
+        }
+
+        // --- 安全验证 JS ---
+        let pendingAction = null; 
+        let pendingData = null;
+
+        function triggerAuth(action, data) {
+            const modal = document.getElementById('authModal');
+            const passInput = document.getElementById('authPassword');
+            pendingAction = action;
+            pendingData = data; 
+            passInput.value = ""; 
+            modal.style.display = 'flex';
+            passInput.focus();
+        }
+
+        function closeModal() {
+            document.getElementById('authModal').style.display = 'none';
+            pendingAction = null;
+            pendingData = null;
+        }
+
+        function confirmAction() {
+            const password = document.getElementById('authPassword').value;
+            if (password === "110") {
+                if (pendingAction === 'delete_addr') {
+                    window.location.href = "/delete_addr/" + pendingData;
+                } else if (pendingAction === 'add_addr') {
+                    document.getElementById('realAddForm').submit();
+                } else if (pendingAction === 'delete_task') {
+                    window.location.href = "/delete/" + pendingData;
+                }
+                closeModal();
+            } else {
+                alert("密码错误！");
+                document.getElementById('authPassword').value = "";
+            }
+        }
+        
+        document.addEventListener("DOMContentLoaded", function() {
+            const passInput = document.getElementById('authPassword');
+            if(passInput){
+                passInput.addEventListener("keypress", function(event) {
+                    if (event.key === "Enter") confirmAction();
+                });
+            }
+        });
+    </script>
 </body>
 </html>
 '''
 
-# --- 路由逻辑 (完全保持你原来的功能) ---
+# --- 路由 ---
 @app.route('/')
 def index():
     init_db()
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    
     c.execute('SELECT value FROM settings WHERE key = ?', ('global_accounts',))
     row_setting = c.fetchone()
     global_accounts = json.loads(row_setting[0]) if row_setting else []
@@ -563,6 +588,5 @@ def delete_entry(id):
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
-    # 自动初始化数据库
     init_db()
     app.run(host='0.0.0.0', port=5000, debug=False)
