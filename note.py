@@ -91,8 +91,8 @@ HTML_TEMPLATE = '''
         .sidebar-left h3 { border-bottom-color: rgba(255,255,255,0.2); }
 
         .sidebar-right { color: var(--right-text) !important; }
-        .profile-name { color: var(--right-text); }
-        .profile-remark { color: var(--right-text); opacity: 0.7; }
+        .profile-name, .special-content { color: var(--right-text); }
+        .profile-remark, .special-remark { color: var(--right-text); opacity: 0.7; }
         .profile-bottom, .special-card { background: var(--input-bg); border-color: var(--border-color); }
 
         [data-theme="dark"] {
@@ -163,19 +163,22 @@ HTML_TEMPLATE = '''
         .profile-card:hover .action-icon { opacity: 0.6; }
         .action-icon:hover { opacity: 1; }
 
-        /* 特别记事样式 (更新版) */
+        /* 特别记事样式 (增强版) */
         .header-special { color: var(--special-color); border-bottom-color: var(--special-color); }
         .special-list { display: flex; flex-direction: column; gap: 15px; }
         .special-card { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; position: relative; border-left: 4px solid var(--special-color); transition: 0.2s; }
         .special-card:hover { transform: translateX(-2px); box-shadow: 0 5px 15px var(--shadow); }
         
-        /* 备注变大 */
-        .special-remark { font-size: 1.1em; font-weight: bold; margin-bottom: 5px; color: var(--right-text); }
-        /* 网址/内容变小 */
-        .special-content { font-size: 0.9em; color: var(--right-text); opacity: 0.8; word-break: break-all; margin-bottom: 10px; }
-        .special-content a { color: var(--highlight); text-decoration: none; font-weight: bold; }
+        .special-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
         
-        .special-actions { display: flex; gap: 10px; justify-content: flex-end; align-items: center; margin-top: 5px; border-top: 1px dashed var(--border-color); padding-top: 8px; }
+        /* 备注 (现在叫“内容”) - 大字，支持换行 */
+        .special-remark-text { font-size: 1.1em; font-weight: bold; color: var(--right-text); white-space: pre-wrap; flex: 1; }
+        
+        /* 网址 (现在叫“链接”) - 小字 */
+        .special-link-text { font-size: 0.9em; color: var(--right-text); opacity: 0.8; word-break: break-all; flex: 1; font-family: monospace; }
+        .special-link-text a { color: var(--highlight); text-decoration: none; font-weight: bold; }
+        
+        .special-actions-footer { display: flex; gap: 10px; justify-content: flex-end; align-items: center; margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 8px; }
         .btn-del-special { color: #e74c3c; cursor: pointer; font-weight: bold; opacity: 0.6; font-size: 0.9em; }
         .btn-del-special:hover { opacity: 1; }
         .btn-edit-special { color: #f39c12; cursor: pointer; font-weight: bold; opacity: 0.6; font-size: 0.9em; }
@@ -237,6 +240,10 @@ HTML_TEMPLATE = '''
 
         .add-profile-box { margin-top: 10px; padding: 15px; background: var(--input-bg); border: 1px dashed var(--border-color); border-radius: 8px; }
         .file-input { width: 100%; margin: 5px 0; font-size: 0.8em; }
+        
+        /* 修复textarea样式 */
+        .special-textarea { width: 100%; height: 80px; resize: vertical; font-family: sans-serif; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-color); margin-bottom: 5px; }
+        
         .edit-area { margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.02); display: none; }
         .edit-area textarea { width: 100%; padding: 5px; margin-bottom: 5px; border: 1px solid #ccc; font-family: monospace; }
         .stats-area { margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-color); }
@@ -330,7 +337,7 @@ HTML_TEMPLATE = '''
                 </form>
             </div>
         </div>
-        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v4.13 (Special+)</div>
+        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v4.14 (Pro)</div>
     </aside>
 
     <aside class="sidebar-right" id="profileDrawer">
@@ -389,19 +396,29 @@ HTML_TEMPLATE = '''
         <div class="special-list">
             {% for s in special_notes %}
             <div class="special-card">
-                {% if s.remark %}<div class="special-remark">{{ s.remark }}</div>{% endif %}
-                
-                <div class="special-content">
-                    {% if s.content.startswith('http') %}
-                        <a href="{{ s.content }}" target="_blank">{{ s.content }}</a>
-                    {% else %}
-                        {{ s.content }}
-                    {% endif %}
+                {% if s.remark %}
+                <div class="special-row">
+                    <div class="special-remark-text">{{ s.remark }}</div>
+                    <button class="btn-copy-mini" onclick="copyContent('{{ s.remark|replace("'", "\\'")|replace('\n', '\\n') }}', this)">📋</button>
                 </div>
+                {% endif %}
                 
-                <div class="special-actions">
+                {% if s.content %}
+                <div class="special-row">
+                    <div class="special-link-text">
+                        {% if s.content.startswith('http') %}
+                            <a href="{{ s.content }}" target="_blank">{{ s.content }}</a>
+                        {% else %}
+                            {{ s.content }}
+                        {% endif %}
+                    </div>
+                    <button class="btn-copy-mini" onclick="copyContent('{{ s.content|replace("'", "\\'") }}', this)">📋</button>
+                </div>
+                {% endif %}
+                
+                <div class="special-actions-footer">
                     <span class="action-icon icon-edit btn-edit-special" 
-                          onclick="openEditSpecialModal({{ s.id }}, '{{ s.content|replace("'", "\\'") }}', '{{ s.remark|replace("'", "\\'") }}')">✏️ 修改</span>
+                          onclick="openEditSpecialModal({{ s.id }}, '{{ s.content|replace("'", "\\'") }}', '{{ s.remark|replace("'", "\\'")|replace('\n', '\\n') }}')">✏️ 修改</span>
                     <span class="action-icon icon-del btn-del-special" onclick="triggerAuth('delete_special', {{ s.id }})">🗑️ 删除</span>
                 </div>
             </div>
@@ -411,8 +428,8 @@ HTML_TEMPLATE = '''
         <button class="btn-show-form" onclick="document.getElementById('add-special-form').style.display = 'block'" style="background:var(--special-color); margin-top:20px;">＋ 新增记事</button>
         <div id="add-special-form" class="add-profile-box" style="display:none; border-color:var(--special-color);">
             <form id="realSpecialForm" action="/add_special_note" method="post" onsubmit="document.getElementById('realSpecialForm').submit();">
-                <input type="text" name="content" placeholder="内容 / 链接" required class="file-input">
-                <input type="text" name="remark" placeholder="备注 (可选)" class="file-input">
+                <textarea name="remark" placeholder="内容 (支持换行)" class="special-textarea"></textarea>
+                <input type="text" name="content" placeholder="链接 (Link)" class="file-input">
                 <button type="submit" class="btn-submit-addr" style="background:var(--special-color); width:100%; margin-top:5px;">保存</button>
             </form>
         </div>
@@ -495,7 +512,12 @@ HTML_TEMPLATE = '''
     </div>
     
     <div class="modal-overlay" id="editSpecialModal">
-        <div class="modal-box"><h3>✏️ 修改特别记事</h3><form id="editSpecialForm" action="/edit_special_note" method="post" onsubmit="event.preventDefault(); triggerAuth('edit_special_note', this);"><input type="hidden" name="id" id="edit_special_id"><div class="modal-input-group"><label class="modal-input-label">内容 / 链接:</label><input type="text" name="content" id="edit_special_content" class="modal-input" required></div><div class="modal-input-group"><label class="modal-input-label">备注:</label><input type="text" name="remark" id="edit_special_remark" class="modal-input"></div><div class="modal-buttons"><button type="button" class="btn-cancel" onclick="closeModal('editSpecialModal')">取消</button><button type="submit" class="btn-confirm">保存</button></div></form></div>
+        <div class="modal-box"><h3>✏️ 修改特别记事</h3><form id="editSpecialForm" action="/edit_special_note" method="post" onsubmit="event.preventDefault(); triggerAuth('edit_special_note', this);">
+            <input type="hidden" name="id" id="edit_special_id">
+            <div class="modal-input-group"><label class="modal-input-label">内容 (支持换行):</label><textarea name="remark" id="edit_special_remark" class="special-textarea"></textarea></div>
+            <div class="modal-input-group"><label class="modal-input-label">链接:</label><input type="text" name="content" id="edit_special_content" class="modal-input"></div>
+            <div class="modal-buttons"><button type="button" class="btn-cancel" onclick="closeModal('editSpecialModal')">取消</button><button type="submit" class="btn-confirm">保存</button></div>
+        </form></div>
     </div>
     
     <script>
@@ -547,253 +569,3 @@ HTML_TEMPLATE = '''
     </script>
 </body>
 </html>
-'''
-
-# --- 路由 ---
-@app.route('/')
-def index():
-    init_db()
-    settings = get_settings_dict()
-    global_accounts_str = ",".join(json.loads(settings.get('global_accounts', '[]')))
-    address_book = json.loads(settings.get('address_book', '[]'))
-    
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    
-    try:
-        c.execute('SELECT id, name, avatar, remark, account_number, link FROM profiles')
-        profiles = [{'id': r[0], 'name': r[1], 'avatar': r[2], 'remark': r[3], 'account_number': r[4], 'link': r[5]} for r in c.fetchall()]
-    except:
-        profiles = []
-        
-    try:
-        c.execute('SELECT id, content, remark FROM special_notes ORDER BY id DESC')
-        special_notes = [{'id': r[0], 'content': r[1], 'remark': r[2]} for r in c.fetchall()]
-    except:
-        special_notes = []
-        
-    c.execute('SELECT id, url, remark, target_accounts, done_accounts, enable_stats FROM bookmarks ORDER BY id DESC')
-    items = []
-    
-    for row in c.fetchall():
-        try: target_accs = json.loads(row[3])
-        except: target_accs = []
-        try: done_accs = json.loads(row[4])
-        except: done_accs = []
-        
-        items.append({
-            'id': row[0], 
-            'url': row[1], 
-            'remark': row[2], 
-            'target_accounts': target_accs, 
-            'target_accounts_str': ",".join(target_accs), 
-            'done_accounts': done_accs, 
-            'done_count': len(done_accs), 
-            'total_count': len(target_accs), 
-            'enable_stats': row[5]==1, 
-            'is_complete': len(done_accs)>=len(target_accs) and len(target_accs)>0
-        })
-        
-    conn.close()
-    return render_template_string(HTML_TEMPLATE, items=items, global_accounts_str=global_accounts_str, address_book=address_book, profiles=profiles, special_notes=special_notes, settings=settings)
-
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
-@app.route('/save_theme', methods=['POST'])
-def save_theme():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    for k in ['left_bg', 'left_text', 'right_bg', 'right_text', 'addr_name_color']:
-        if k in request.form:
-            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (k, request.form[k]))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/add_profile', methods=['POST'])
-def add_profile():
-    name = request.form['name']
-    remark = request.form['remark']
-    account_number = request.form['account_number']
-    link = request.form['link']
-    file = request.files['file']
-    
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        filename = str(int(time.time())) + "_" + filename
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        c.execute('INSERT INTO profiles (name, avatar, remark, account_number, link) VALUES (?, ?, ?, ?, ?)', (name, filename, remark, account_number, link))
-        conn.commit()
-        conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/edit_profile', methods=['POST'])
-def edit_profile():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('UPDATE profiles SET name=?, remark=?, account_number=?, link=? WHERE id=?', 
-              (request.form['name'], request.form['remark'], request.form['account_number'], request.form['link'], request.form['id']))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/delete_profile/<int:id>')
-def delete_profile(id):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('DELETE FROM profiles WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/add_special_note', methods=['POST'])
-def add_special_note():
-    content = request.form['content']
-    remark = request.form['remark']
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('INSERT INTO special_notes (content, remark) VALUES (?, ?)', (content, remark))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/edit_special_note', methods=['POST'])
-def edit_special_note():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('UPDATE special_notes SET content = ?, remark = ? WHERE id = ?', 
-              (request.form['content'], request.form['remark'], request.form['id']))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/delete_special_note/<int:id>')
-def delete_special_note(id):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('DELETE FROM special_notes WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/edit_task_info', methods=['POST'])
-def edit_task_info():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('UPDATE bookmarks SET url = ?, remark = ? WHERE id = ?', 
-              (request.form['url'], request.form['remark'], request.form['id']))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/update_global_settings', methods=['POST'])
-def update_global_settings():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    new_list = [x.strip() for x in request.form['global_accounts_str'].replace('，', ',').split(',') if x.strip()]
-    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('global_accounts', json.dumps(new_list)))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/add_addr', methods=['POST'])
-def add_addr():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',))
-    row = c.fetchone()
-    l = json.loads(row[0]) if row else []
-    l.append({'name': request.form['name'], 'addr': request.form['addr'], 'uid': request.form['uid']})
-    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(l)))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/edit_addr', methods=['POST'])
-def edit_addr():
-    index = int(request.form['index'])
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',))
-    row = c.fetchone()
-    if row:
-        l = json.loads(row[0])
-        if 0 <= index < len(l):
-            l[index] = {'name': request.form['name'], 'addr': request.form['addr'], 'uid': request.form['uid']}
-            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(l)))
-            conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/delete_addr/<int:index>')
-def delete_addr(index):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',))
-    row = c.fetchone()
-    if row:
-        l = json.loads(row[0])
-        if 0 <= index < len(l):
-            l.pop(index)
-            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(l)))
-            conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/add', methods=['POST'])
-def add_entry():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('SELECT value FROM settings WHERE key = ?', ('global_accounts',))
-    default_accs = json.loads(c.fetchone()[0])
-    c.execute('INSERT INTO bookmarks (url, remark, target_accounts, done_accounts, enable_stats) VALUES (?, ?, ?, ?, 1)', 
-              (request.form['url'], request.form['remark'], json.dumps(default_accs), '[]'))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/toggle_stats/<int:id>')
-def toggle_stats(id):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('UPDATE bookmarks SET enable_stats = NOT enable_stats WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/update_item_accounts/<int:id>', methods=['POST'])
-def update_item_accounts(id):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    new_list = [x.strip() for x in request.form['target_accounts_str'].replace('，', ',').split(',') if x.strip()]
-    c.execute('UPDATE bookmarks SET target_accounts = ? WHERE id = ?', (json.dumps(new_list), id))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/update_progress/<int:id>', methods=['POST'])
-def update_progress(id):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('UPDATE bookmarks SET done_accounts = ? WHERE id = ?', (json.dumps(request.form.getlist('done_accounts')), id))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/delete/<int:id>')
-def delete_entry(id):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('DELETE FROM bookmarks WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-if __name__ == '__main__':
-    init_db()
-    app.run(host='0.0.0.0', port=5000, debug=False)
