@@ -123,11 +123,21 @@ HTML_TEMPLATE = '''
         }
         .theme-btn:hover { transform: scale(1.05); }
 
+        /* 左侧边栏 */
         .sidebar-left { 
             width: var(--left-sidebar-width); background: var(--left-bg); padding: 20px; 
             display: flex; flex-direction: column; position: fixed; left: 0; top: 0; bottom: 0; 
             overflow-y: auto; z-index: 100; box-shadow: 2px 0 10px rgba(0,0,0,0.2); transition: background 0.3s;
         }
+        
+        /* 标题栏含颜色设置按钮 */
+        .sidebar-header-row {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 10px; margin-bottom: 15px;
+        }
+        .sidebar-header-row h3 { margin: 0; border: none; padding: 0; }
+        .btn-color-setting { background: none; border: none; cursor: pointer; font-size: 1.2em; opacity: 0.7; transition: 0.2s; }
+        .btn-color-setting:hover { opacity: 1; transform: rotate(30deg); }
 
         .drawer-handle {
             position: fixed; top: 50%; right: 0; transform: translateY(-50%);
@@ -184,17 +194,33 @@ HTML_TEMPLATE = '''
         .main-content { margin-left: var(--left-sidebar-width); width: calc(100% - var(--left-sidebar-width)); padding: 40px; display: flex; flex-direction: column; align-items: center; }
         .content-container { width: 100%; max-width: 900px; }
 
-        .sidebar-left h3 { margin-top: 0; border-bottom: 1px solid; padding-bottom: 10px; margin-bottom: 15px; font-size: 1.1em; }
         .sidebar-desc { font-size: 0.8em; margin-bottom: 10px; }
         .setting-box { background: rgba(128,128,128,0.1); padding: 15px; border-radius: 8px; margin-bottom: 25px; border: 1px solid rgba(128,128,128,0.2); }
         .setting-label { font-size: 0.9em; font-weight: bold; margin-bottom: 8px; display: block; }
         .account-editor { width: 100%; height: 80px; background: rgba(255,255,255,0.9); border: none; border-radius: 4px; padding: 8px; margin-bottom: 8px; font-family: monospace; resize: vertical; font-size: 0.9em; color: #333; }
         .btn-save-settings { width: 100%; padding: 8px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em; }
         
+        /* 地址卡片 - 修复溢出问题 */
         .addr-card { background: var(--addr-card-bg); padding: 12px; border-radius: 6px; font-size: 0.85em; border: 1px solid rgba(128,128,128,0.2); }
         .addr-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed; padding-bottom: 5px; border-color: rgba(128,128,128,0.3); }
         .addr-name { font-size: 1.2em; font-weight: 800; color: var(--highlight); } 
-        .addr-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; font-family: monospace; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px; color: #ccc; }
+        
+        /* 这里的 flex 设置是防爆撑的关键 */
+        .addr-row { display: flex; align-items: center; gap: 5px; margin-top: 6px; color: var(--addr-text); width: 100%; }
+        .addr-val { 
+            flex: 1; /* 自动占据剩余空间 */
+            min-width: 0; /* 允许压缩到0，这是 text-overflow 生效的关键 */
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            white-space: nowrap; 
+            font-family: monospace; 
+            background: rgba(0,0,0,0.3); 
+            padding: 2px 5px; 
+            border-radius: 3px; 
+            color: #ccc; 
+        }
+        .btn-copy-icon { flex-shrink: 0; /* 按钮不许被压缩 */ background: none; border: 1px solid #576d80; color: #bdc3c7; cursor: pointer; border-radius: 3px; font-size: 0.8em; padding: 1px 6px; white-space: nowrap; }
+        .btn-copy-icon.copied { background: #2ecc71; color: white; border-color: #2ecc71; }
         
         .btn-show-form { width: 100%; background: #27ae60; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px; }
         .add-addr-container { display: none; margin-top: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; }
@@ -274,8 +300,11 @@ HTML_TEMPLATE = '''
     <div class="drawer-overlay" id="drawerOverlay" onclick="toggleDrawer()"></div>
 
     <aside class="sidebar-left">
-        <h3>⚙️ 控制台</h3>
-        <button onclick="openColorModal()" style="width:100%; padding:8px; background:linear-gradient(45deg, #ff9a9e, #fad0c4); color:#333; border:none; border-radius:4px; font-weight:bold; cursor:pointer; margin-bottom:20px;">🎨 界面颜色设置</button>
+        <div class="sidebar-header-row">
+            <h3>⚙️ 控制台</h3>
+            <button class="btn-color-setting" onclick="openColorModal()" title="设置界面颜色">🎨</button>
+        </div>
+        
         <div class="setting-box">
             <span class="setting-label">📥 默认账户模板</span>
             <form action="/update_global_settings" method="post">
@@ -305,6 +334,13 @@ HTML_TEMPLATE = '''
                         <button class="btn-copy-icon" data-val="{{ item.addr }}" onclick="copyContent(this.dataset.val, this)">Copy</button>
                     </div>
                     {% endif %}
+                    {% if item.uid %}
+                    <div class="addr-row">
+                        <span style="font-size:0.8em; opacity:0.7;">UID:</span>
+                        <span class="addr-val" title="{{ item.uid }}">{{ item.uid }}</span>
+                        <button class="btn-copy-icon" data-val="{{ item.uid }}" onclick="copyContent(this.dataset.val, this)">Copy</button>
+                    </div>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
@@ -318,7 +354,7 @@ HTML_TEMPLATE = '''
                 </form>
             </div>
         </div>
-        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v4.5 (Drawer Fixed)</div>
+        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v4.6 (UI Fixed)</div>
     </aside>
 
     <aside class="sidebar-right" id="rightDrawer">
@@ -503,8 +539,7 @@ def index():
     conn.close(); return render_template_string(HTML_TEMPLATE, items=items, global_accounts_str=global_accounts_str, address_book=address_book, profiles=profiles, settings=settings)
 
 @app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+def uploaded_file(filename): return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/save_theme', methods=['POST'])
 def save_theme():
@@ -514,175 +549,40 @@ def save_theme():
 
 @app.route('/add_profile', methods=['POST'])
 def add_profile():
-    name = request.form['name']
-    remark = request.form['remark']
-    account_number = request.form['account_number']
-    link = request.form['link']
-    file = request.files['file']
-    
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        filename = str(int(time.time())) + "_" + filename
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        c.execute('INSERT INTO profiles (name, avatar, remark, account_number, link) VALUES (?, ?, ?, ?, ?)', 
-                  (name, filename, remark, account_number, link))
-        conn.commit()
-        conn.close()
+    name = request.form['name']; remark = request.form['remark']; account_number = request.form['account_number']; link = request.form['link']; file = request.files['file']
+    if file and allowed_file(file.filename): filename = secure_filename(file.filename); filename = str(int(time.time())) + "_" + filename; file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename)); conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('INSERT INTO profiles (name, avatar, remark, account_number, link) VALUES (?, ?, ?, ?, ?)', (name, filename, remark, account_number, link)); conn.commit(); conn.close()
     return redirect(url_for('index'))
 
 @app.route('/edit_profile', methods=['POST'])
-def edit_profile():
-    pid = request.form['id']
-    name = request.form['name']
-    remark = request.form['remark']
-    account_number = request.form['account_number']
-    link = request.form['link']
-    
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('UPDATE profiles SET name=?, remark=?, account_number=?, link=? WHERE id=?', 
-              (name, remark, account_number, link, pid))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
+def edit_profile(): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('UPDATE profiles SET name=?, remark=?, account_number=?, link=? WHERE id=?', (request.form['name'], request.form['remark'], request.form['account_number'], request.form['link'], request.form['id'])); conn.commit(); conn.close(); return redirect(url_for('index'))
 @app.route('/delete_profile/<int:id>')
-def delete_profile(id):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('DELETE FROM profiles WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
+def delete_profile(id): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('DELETE FROM profiles WHERE id = ?', (id,)); conn.commit(); conn.close(); return redirect(url_for('index'))
 @app.route('/edit_task_info', methods=['POST'])
-def edit_task_info():
-    task_id = request.form['id']
-    url = request.form['url']
-    remark = request.form['remark']
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('UPDATE bookmarks SET url = ?, remark = ? WHERE id = ?', (url, remark, task_id))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
+def edit_task_info(): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('UPDATE bookmarks SET url = ?, remark = ? WHERE id = ?', (request.form['url'], request.form['remark'], request.form['id'])); conn.commit(); conn.close(); return redirect(url_for('index'))
 @app.route('/update_global_settings', methods=['POST'])
-def update_global_settings():
-    raw_str = request.form['global_accounts_str']
-    new_list = [x.strip() for x in raw_str.replace('，', ',').split(',') if x.strip()]
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('global_accounts', json.dumps(new_list)))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
+def update_global_settings(): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('global_accounts', json.dumps([x.strip() for x in request.form['global_accounts_str'].replace('，', ',').split(',') if x.strip()]))); conn.commit(); conn.close(); return redirect(url_for('index'))
 @app.route('/add_addr', methods=['POST'])
-def add_addr():
-    name = request.form['name']
-    addr = request.form['addr']
-    uid = request.form['uid']
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',))
-    row = c.fetchone()
-    current_list = json.loads(row[0]) if row else []
-    current_list.append({'name': name, 'addr': addr, 'uid': uid})
-    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(current_list)))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
+def add_addr(): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',)); row = c.fetchone(); l = json.loads(row[0]) if row else []; l.append({'name': request.form['name'], 'addr': request.form['addr'], 'uid': request.form['uid']}); c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(l))); conn.commit(); conn.close(); return redirect(url_for('index'))
 @app.route('/edit_addr', methods=['POST'])
-def edit_addr():
-    index = int(request.form['index'])
-    name = request.form['name']
-    addr = request.form['addr']
-    uid = request.form['uid']
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',))
-    row = c.fetchone()
-    if row:
-        current_list = json.loads(row[0])
-        if 0 <= index < len(current_list):
-            current_list[index] = {'name': name, 'addr': addr, 'uid': uid}
-            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(current_list)))
-            conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
+def edit_addr(): index = int(request.form['index']); conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',)); row = c.fetchone(); 
+    if row: l = json.loads(row[0]); 
+    if 0 <= index < len(l): l[index] = {'name': request.form['name'], 'addr': request.form['addr'], 'uid': request.form['uid']}; c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(l))); conn.commit(); 
+    conn.close(); return redirect(url_for('index'))
 @app.route('/delete_addr/<int:index>')
-def delete_addr(index):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',))
-    row = c.fetchone()
-    if row:
-        current_list = json.loads(row[0])
-        if 0 <= index < len(current_list):
-            current_list.pop(index)
-            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(current_list)))
-            conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
+def delete_addr(index): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',)); row = c.fetchone(); 
+    if row: l = json.loads(row[0]); 
+    if 0 <= index < len(l): l.pop(index); c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(l))); conn.commit(); 
+    conn.close(); return redirect(url_for('index'))
 @app.route('/add', methods=['POST'])
-def add_entry():
-    url = request.form['url']
-    remark = request.form['remark']
-    default_accs = get_settings_dict().get('global_accounts')
-    default_accs = json.loads(default_accs) if default_accs else []
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('INSERT INTO bookmarks (url, remark, target_accounts, done_accounts, enable_stats) VALUES (?, ?, ?, ?, 1)', 
-              (url, remark, json.dumps(default_accs), '[]'))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
+def add_entry(): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('SELECT value FROM settings WHERE key = ?', ('global_accounts',)); default_accs = json.loads(c.fetchone()[0]); c.execute('INSERT INTO bookmarks (url, remark, target_accounts, done_accounts, enable_stats) VALUES (?, ?, ?, ?, 1)', (request.form['url'], request.form['remark'], json.dumps(default_accs), '[]')); conn.commit(); conn.close(); return redirect(url_for('index'))
 @app.route('/toggle_stats/<int:id>')
-def toggle_stats(id):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('UPDATE bookmarks SET enable_stats = NOT enable_stats WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
+def toggle_stats(id): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('UPDATE bookmarks SET enable_stats = NOT enable_stats WHERE id = ?', (id,)); conn.commit(); conn.close(); return redirect(url_for('index'))
 @app.route('/update_item_accounts/<int:id>', methods=['POST'])
-def update_item_accounts(id):
-    raw_str = request.form['target_accounts_str']
-    new_list = [x.strip() for x in raw_str.replace('，', ',').split(',') if x.strip()]
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('UPDATE bookmarks SET target_accounts = ? WHERE id = ?', (json.dumps(new_list), id))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
+def update_item_accounts(id): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('UPDATE bookmarks SET target_accounts = ? WHERE id = ?', (json.dumps([x.strip() for x in request.form['target_accounts_str'].replace('，', ',').split(',') if x.strip()]), id)); conn.commit(); conn.close(); return redirect(url_for('index'))
 @app.route('/update_progress/<int:id>', methods=['POST'])
-def update_progress(id):
-    done_accounts = request.form.getlist('done_accounts')
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('UPDATE bookmarks SET done_accounts = ? WHERE id = ?', (json.dumps(done_accounts), id))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
+def update_progress(id): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('UPDATE bookmarks SET done_accounts = ? WHERE id = ?', (json.dumps(request.form.getlist('done_accounts')), id)); conn.commit(); conn.close(); return redirect(url_for('index'))
 @app.route('/delete/<int:id>')
-def delete_entry(id):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('DELETE FROM bookmarks WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
+def delete_entry(id): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('DELETE FROM bookmarks WHERE id = ?', (id,)); conn.commit(); conn.close(); return redirect(url_for('index'))
 
 if __name__ == '__main__':
     init_db()
