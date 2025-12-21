@@ -22,16 +22,25 @@ def allowed_file(filename):
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
+    
+    # 创建表结构
     c.execute('''CREATE TABLE IF NOT EXISTS bookmarks (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT, remark TEXT, target_accounts TEXT, done_accounts TEXT, enable_stats INTEGER DEFAULT 1)''')
     c.execute('''CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, avatar TEXT, remark TEXT, account_number TEXT, link TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS special_notes (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT, remark TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
-    try: c.execute('ALTER TABLE profiles ADD COLUMN account_number TEXT')
-    except: pass
-    try: c.execute('ALTER TABLE profiles ADD COLUMN link TEXT')
-    except: pass
+    # 字段迁移
+    try:
+        c.execute('ALTER TABLE profiles ADD COLUMN account_number TEXT')
+    except:
+        pass
         
+    try:
+        c.execute('ALTER TABLE profiles ADD COLUMN link TEXT')
+    except:
+        pass
+        
+    # 初始化默认设置
     c.execute('SELECT value FROM settings WHERE key = ?', ('global_accounts',))
     if c.fetchone() is None:
         default_accs = json.dumps(['账号1', '账号2', '账号3'])
@@ -41,9 +50,12 @@ def init_db():
     if c.fetchone() is None:
         c.execute('INSERT INTO settings (key, value) VALUES (?, ?)', ('address_book', '[]'))
         
+    # 默认颜色配置
     defaults = {
-        'left_bg': '#2c3e50', 'left_text': '#ffffff', 
-        'right_bg': '#ffffff', 'right_text': '#333333',
+        'left_bg': '#2c3e50', 
+        'left_text': '#ffffff', 
+        'right_bg': '#ffffff', 
+        'right_text': '#333333',
         'addr_name_color': '#3498db'
     }
     for k, v in defaults.items():
@@ -91,8 +103,8 @@ HTML_TEMPLATE = '''
         .sidebar-left h3 { border-bottom-color: rgba(255,255,255,0.2); }
 
         .sidebar-right { color: var(--right-text) !important; }
-        .profile-name, .special-content { color: var(--right-text); }
-        .profile-remark, .special-remark { color: var(--right-text); opacity: 0.7; }
+        .profile-name, .special-remark-text { color: var(--right-text); }
+        .profile-remark, .special-link-text { color: var(--right-text); opacity: 0.7; }
         .profile-bottom, .special-card { background: var(--input-bg); border-color: var(--border-color); }
 
         [data-theme="dark"] {
@@ -163,7 +175,7 @@ HTML_TEMPLATE = '''
         .profile-card:hover .action-icon { opacity: 0.6; }
         .action-icon:hover { opacity: 1; }
 
-        /* 特别记事样式 (增强版) */
+        /* 特别记事样式 (Pro) */
         .header-special { color: var(--special-color); border-bottom-color: var(--special-color); }
         .special-list { display: flex; flex-direction: column; gap: 15px; }
         .special-card { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; position: relative; border-left: 4px solid var(--special-color); transition: 0.2s; }
@@ -171,10 +183,10 @@ HTML_TEMPLATE = '''
         
         .special-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
         
-        /* 备注 (现在叫“内容”) - 大字，支持换行 */
-        .special-remark-text { font-size: 1.1em; font-weight: bold; color: var(--right-text); white-space: pre-wrap; flex: 1; }
+        /* 备注(现用作内容) - 大字，支持换行 */
+        .special-remark-text { font-size: 1.1em; font-weight: bold; color: var(--right-text); white-space: pre-wrap; flex: 1; line-height: 1.5; }
         
-        /* 网址 (现在叫“链接”) - 小字 */
+        /* 内容(现用作链接) - 小字 */
         .special-link-text { font-size: 0.9em; color: var(--right-text); opacity: 0.8; word-break: break-all; flex: 1; font-family: monospace; }
         .special-link-text a { color: var(--highlight); text-decoration: none; font-weight: bold; }
         
@@ -241,8 +253,8 @@ HTML_TEMPLATE = '''
         .add-profile-box { margin-top: 10px; padding: 15px; background: var(--input-bg); border: 1px dashed var(--border-color); border-radius: 8px; }
         .file-input { width: 100%; margin: 5px 0; font-size: 0.8em; }
         
-        /* 修复textarea样式 */
-        .special-textarea { width: 100%; height: 80px; resize: vertical; font-family: sans-serif; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-color); margin-bottom: 5px; }
+        /* 大输入框样式 */
+        .special-textarea { width: 100%; height: 100px; resize: vertical; font-family: sans-serif; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-color); margin-bottom: 8px; font-size: 1em; }
         
         .edit-area { margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.02); display: none; }
         .edit-area textarea { width: 100%; padding: 5px; margin-bottom: 5px; border: 1px solid #ccc; font-family: monospace; }
