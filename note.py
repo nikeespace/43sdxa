@@ -25,15 +25,12 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS bookmarks (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT, remark TEXT, target_accounts TEXT, done_accounts TEXT, enable_stats INTEGER DEFAULT 1)''')
     c.execute('''CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, avatar TEXT, remark TEXT, account_number TEXT, link TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS special_notes (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT, remark TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
-    try: 
-        c.execute('ALTER TABLE profiles ADD COLUMN account_number TEXT')
-    except: 
-        pass
-    try: 
-        c.execute('ALTER TABLE profiles ADD COLUMN link TEXT')
-    except: 
-        pass
+    try: c.execute('ALTER TABLE profiles ADD COLUMN account_number TEXT')
+    except: pass
+    try: c.execute('ALTER TABLE profiles ADD COLUMN link TEXT')
+    except: pass
         
     c.execute('SELECT value FROM settings WHERE key = ?', ('global_accounts',))
     if c.fetchone() is None:
@@ -44,12 +41,9 @@ def init_db():
     if c.fetchone() is None:
         c.execute('INSERT INTO settings (key, value) VALUES (?, ?)', ('address_book', '[]'))
         
-    # 初始化默认颜色配置 (新增 addr_name_color)
     defaults = {
-        'left_bg': '#2c3e50', 
-        'left_text': '#ffffff', 
-        'right_bg': '#ffffff', 
-        'right_text': '#333333',
+        'left_bg': '#2c3e50', 'left_text': '#ffffff', 
+        'right_bg': '#ffffff', 'right_text': '#333333',
         'addr_name_color': '#3498db'
     }
     for k, v in defaults.items():
@@ -82,19 +76,12 @@ HTML_TEMPLATE = '''
             --right-text: {{ settings.get('right_text', '#333333') }};
             --addr-name-color: {{ settings.get('addr_name_color', '#3498db') }};
             
-            --bg-color: #f4f4f9;
-            --text-color: #333;
-            --card-bg: white;
-            --input-bg: white;
-            --border-color: #ddd;
-            --shadow: 0 4px 12px rgba(0,0,0,0.08);
-            --addr-card-bg: rgba(0,0,0,0.2); 
-            --addr-text: rgba(255,255,255,0.7); 
-            --btn-bg: #e0e0e0;
-            --highlight: #3498db;
+            --bg-color: #f4f4f9; --text-color: #333; --card-bg: white; --input-bg: white;
+            --border-color: #ddd; --shadow: 0 4px 12px rgba(0,0,0,0.08);
+            --addr-card-bg: rgba(0,0,0,0.2); --addr-text: rgba(255,255,255,0.7); 
+            --btn-bg: #e0e0e0; --highlight: #3498db; --special-color: #e67e22;
             
-            --left-sidebar-width: 320px;
-            --drawer-width: 800px; 
+            --left-sidebar-width: 320px; --drawer-width: 800px; 
         }
 
         .sidebar-left { color: var(--left-text) !important; }
@@ -104,69 +91,43 @@ HTML_TEMPLATE = '''
         .sidebar-left h3 { border-bottom-color: rgba(255,255,255,0.2); }
 
         .sidebar-right { color: var(--right-text) !important; }
-        .profile-name { color: var(--right-text); }
-        .profile-remark { color: var(--right-text); opacity: 0.7; }
-        .profile-bottom { color: var(--right-text); background: rgba(128,128,128,0.1); }
+        .profile-name, .special-content { color: var(--right-text); }
+        .profile-remark, .special-remark { color: var(--right-text); opacity: 0.7; }
+        .profile-bottom, .special-card { background: var(--input-bg); border-color: var(--border-color); }
 
         [data-theme="dark"] {
-            --bg-color: #121212;
-            --text-color: #e0e0e0;
-            --card-bg: #1e1e1e;
-            --input-bg: #2d2d2d;
-            --border-color: #444;
-            --shadow: 0 4px 12px rgba(0,0,0,0.6);
-            --btn-bg: #333;
-            --highlight: #5dade2;
-            --left-bg: #0f1519; --left-text: #ccc;
-            --right-bg: #1e1e1e; --right-text: #ccc;
-            --addr-name-color: #5dade2; /* 夜间模式强制蓝色，避免看不清 */
+            --bg-color: #121212; --text-color: #e0e0e0; --card-bg: #1e1e1e; --input-bg: #2d2d2d;
+            --border-color: #444; --shadow: 0 4px 12px rgba(0,0,0,0.6); --btn-bg: #333;
+            --highlight: #5dade2; --special-color: #d35400;
+            --left-bg: #0f1519; --left-text: #ccc; --right-bg: #1e1e1e; --right-text: #ccc;
+            --addr-name-color: #5dade2;
         }
 
         * { box-sizing: border-box; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; 
-            margin: 0; background: var(--bg-color); color: var(--text-color); 
-            display: flex; min-height: 100vh; overflow-x: hidden;
-        }
-        
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.3); border-radius: 3px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 0; background: var(--bg-color); color: var(--text-color); display: flex; min-height: 100vh; overflow-x: hidden; }
+        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.3); border-radius: 3px; }
 
-        /* 修复1: 降低主题按钮层级，防止遮挡抽屉 */
         .theme-switch-wrapper { position: fixed; top: 15px; right: 20px; z-index: 9000; }
-        
-        .theme-btn { 
-            background: var(--btn-bg); border: 1px solid var(--border-color); color: var(--text-color); 
-            padding: 8px 15px; cursor: pointer; border-radius: 20px; font-size: 14px; font-weight: bold;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: all 0.2s;
-        }
+        .theme-btn { background: var(--btn-bg); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px 15px; cursor: pointer; border-radius: 20px; font-size: 14px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: all 0.2s; }
         .theme-btn:hover { transform: scale(1.05); }
 
-        .sidebar-left { 
-            width: var(--left-sidebar-width); background: var(--left-bg); padding: 20px; 
-            display: flex; flex-direction: column; position: fixed; left: 0; top: 0; bottom: 0; 
-            overflow-y: auto; z-index: 100; box-shadow: 2px 0 10px rgba(0,0,0,0.2); transition: background 0.3s;
-        }
-        
-        .sidebar-header-row {
-            display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 10px; margin-bottom: 15px;
-        }
+        .sidebar-left { width: var(--left-sidebar-width); background: var(--left-bg); padding: 20px; display: flex; flex-direction: column; position: fixed; left: 0; top: 0; bottom: 0; overflow-y: auto; z-index: 100; box-shadow: 2px 0 10px rgba(0,0,0,0.2); transition: background 0.3s; }
+        .sidebar-header-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 10px; margin-bottom: 15px; }
         .sidebar-header-row h3 { margin: 0; border: none; padding: 0; }
         .btn-color-setting { background: none; border: none; cursor: pointer; font-size: 1.2em; opacity: 0.7; transition: 0.2s; }
         .btn-color-setting:hover { opacity: 1; transform: rotate(30deg); }
 
         .drawer-handle {
-            position: fixed; top: 50%; right: 0; transform: translateY(-50%);
-            background: var(--highlight); color: white; padding: 15px 5px; cursor: pointer; z-index: 2000;
+            position: fixed; right: 0; width: 40px; padding: 15px 5px; cursor: pointer; z-index: 2000;
             border-top-left-radius: 8px; border-bottom-left-radius: 8px;
             writing-mode: vertical-rl; text-orientation: upright; font-weight: bold;
-            box-shadow: -2px 0 10px rgba(0,0,0,0.2); transition: right 0.3s ease; letter-spacing: 2px;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.2); transition: right 0.3s ease; letter-spacing: 2px; color: white;
         }
-        .drawer-handle:hover { padding-left: 10px; }
+        .drawer-handle:hover { padding-left: 10px; width: 45px; }
+        
+        .handle-profile { top: 40%; transform: translateY(-50%); background: var(--highlight); }
+        .handle-special { top: 60%; transform: translateY(-50%); background: var(--special-color); }
 
-        /* 修复2: 提高抽屉层级到 10001，覆盖所有按钮 */
         .sidebar-right {
             position: fixed; top: 0; right: 0; bottom: 0; width: var(--drawer-width); max-width: 90vw;
             background: var(--right-bg); z-index: 10001; 
@@ -181,36 +142,37 @@ HTML_TEMPLATE = '''
         }
         .drawer-overlay.open { display: block; opacity: 1; }
 
-        .right-header { font-size: 1.5em; font-weight: bold; margin-bottom: 20px; text-align: center; border-bottom: 2px solid var(--highlight); padding-bottom: 10px; color: var(--highlight); display: flex; justify-content: space-between; align-items: center;}
-        .close-drawer-btn { font-size: 0.8em; cursor: pointer; color: var(--right-text); opacity: 0.5; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px; }
+        .right-header { font-size: 1.5em; font-weight: bold; margin-bottom: 20px; text-align: center; border-bottom: 2px solid; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
+        .close-drawer-btn { font-size: 0.8em; cursor: pointer; color: var(--right-text); opacity: 0.5; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px; background:transparent; }
         .close-drawer-btn:hover { opacity: 1; background: var(--btn-bg); }
 
+        .header-profile { color: var(--highlight); border-bottom-color: var(--highlight); }
         #profile-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; padding-bottom: 20px; }
-
-        .profile-card {
-            background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;
-            display: flex; flex-direction: column; position: relative; transition: transform 0.2s; box-shadow: 0 2px 5px var(--shadow); height: 100%;
-        }
+        .profile-card { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; position: relative; transition: transform 0.2s; box-shadow: 0 2px 5px var(--shadow); height: 100%; }
         .profile-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px var(--shadow); z-index: 2; }
-
         .profile-top { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
-        .profile-avatar {
-            width: 50px; height: 50px; border-radius: 50%; object-fit: cover;
-            border: 2px solid var(--border-color); background: #eee; cursor: pointer; transition: transform 0.2s;
-        }
+        .profile-avatar { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-color); background: #eee; cursor: pointer; transition: transform 0.2s; }
         .profile-avatar:hover { transform: scale(1.1); border-color: var(--highlight); }
-
         .profile-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
         .profile-name { font-weight: bold; font-size: 1.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .profile-remark { font-size: 0.8em; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .profile-bottom { border-radius: 4px; padding: 6px; display: flex; align-items: center; justify-content: space-between; font-size: 0.85em; margin-top: auto; }
         .acc-num { font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
-        
         .profile-actions { position: absolute; top: 5px; right: 5px; display: flex; gap: 5px; }
         .action-icon { cursor: pointer; font-size: 1.1em; opacity: 0.2; transition: 0.2s; }
         .profile-card:hover .action-icon { opacity: 0.6; }
         .action-icon:hover { opacity: 1; }
-        
+
+        .header-special { color: var(--special-color); border-bottom-color: var(--special-color); }
+        .special-list { display: flex; flex-direction: column; gap: 15px; }
+        .special-card { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; position: relative; border-left: 4px solid var(--special-color); transition: 0.2s; }
+        .special-card:hover { transform: translateX(-2px); box-shadow: 0 5px 15px var(--shadow); }
+        .special-content { font-size: 1.1em; font-weight: bold; margin-bottom: 5px; word-break: break-all; }
+        .special-remark { font-size: 0.9em; margin-bottom: 10px; }
+        .special-actions { display: flex; gap: 10px; justify-content: flex-end; align-items: center; margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 8px; }
+        .btn-del-special { color: #e74c3c; cursor: pointer; font-weight: bold; opacity: 0.6; font-size: 0.9em; }
+        .btn-del-special:hover { opacity: 1; }
+
         .main-content { margin-left: var(--left-sidebar-width); width: calc(100% - var(--left-sidebar-width)); padding: 40px; display: flex; flex-direction: column; align-items: center; }
         .content-container { width: 100%; max-width: 900px; }
 
@@ -222,15 +184,10 @@ HTML_TEMPLATE = '''
         
         .addr-card { background: var(--addr-card-bg); padding: 12px; border-radius: 6px; font-size: 0.85em; border: 1px solid rgba(128,128,128,0.2); }
         .addr-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed; padding-bottom: 5px; border-color: rgba(128,128,128,0.3); }
-        
-        /* 使用自定义颜色变量 */
         .addr-name { font-size: 1.2em; font-weight: 800; color: var(--addr-name-color); } 
         
         .addr-row { display: flex; align-items: center; gap: 5px; margin-top: 6px; color: var(--addr-text); width: 100%; }
-        .addr-val { 
-            flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
-            font-family: monospace; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px; color: #ccc; 
-        }
+        .addr-val { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: monospace; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px; color: #ccc; }
         .btn-copy-icon { flex-shrink: 0; background: none; border: 1px solid #576d80; color: #bdc3c7; cursor: pointer; border-radius: 3px; font-size: 0.8em; padding: 1px 6px; white-space: nowrap; }
         .btn-copy-icon.copied { background: #2ecc71; color: white; border-color: #2ecc71; }
         
@@ -307,9 +264,10 @@ HTML_TEMPLATE = '''
         <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">☀️/🌙</button>
     </div>
 
-    <div class="drawer-handle" onclick="toggleDrawer()">🎨 账户展馆</div>
+    <div class="drawer-handle handle-profile" onclick="toggleDrawer('profileDrawer')">💳 账户展馆</div>
+    <div class="drawer-handle handle-special" onclick="toggleDrawer('specialDrawer')">⭐ 特别记事</div>
 
-    <div class="drawer-overlay" id="drawerOverlay" onclick="toggleDrawer()"></div>
+    <div class="drawer-overlay" id="drawerOverlay" onclick="closeAllDrawers()"></div>
 
     <aside class="sidebar-left">
         <div class="sidebar-header-row">
@@ -341,14 +299,12 @@ HTML_TEMPLATE = '''
                     </div>
                     {% if item.addr %}
                     <div class="addr-row">
-                        <span style="font-size:0.8em; opacity:0.7;">Add:</span>
                         <span class="addr-val" title="{{ item.addr }}">{{ item.addr }}</span>
                         <button class="btn-copy-icon" data-val="{{ item.addr }}" onclick="copyContent(this.dataset.val, this)">Copy</button>
                     </div>
                     {% endif %}
                     {% if item.uid %}
                     <div class="addr-row">
-                        <span style="font-size:0.8em; opacity:0.7;">UID:</span>
                         <span class="addr-val" title="{{ item.uid }}">{{ item.uid }}</span>
                         <button class="btn-copy-icon" data-val="{{ item.uid }}" onclick="copyContent(this.dataset.val, this)">Copy</button>
                     </div>
@@ -366,15 +322,14 @@ HTML_TEMPLATE = '''
                 </form>
             </div>
         </div>
-        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v4.8 (Color+ZIndex)</div>
+        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v4.11 (Clean Icon)</div>
     </aside>
 
-    <aside class="sidebar-right" id="rightDrawer">
-        <div class="right-header">
-            <span>🎨 账户展馆</span>
-            <button class="close-drawer-btn" onclick="toggleDrawer()">收起 >></button>
+    <aside class="sidebar-right" id="profileDrawer">
+        <div class="right-header header-profile">
+            <span>💳 账户展馆</span>
+            <button class="close-drawer-btn" onclick="closeAllDrawers()">收起 >></button>
         </div>
-        
         <div id="profile-list">
             {% for p in profiles %}
             <div class="profile-card">
@@ -413,6 +368,35 @@ HTML_TEMPLATE = '''
                 <label style="font-size:0.8em;">头像:</label>
                 <input type="file" name="file" class="file-input" accept="image/*" required>
                 <button type="submit" class="btn-submit-addr" style="width:100%; margin-top:5px;">上传并添加</button>
+            </form>
+        </div>
+    </aside>
+
+    <aside class="sidebar-right" id="specialDrawer">
+        <div class="right-header header-special">
+            <span>⭐ 特别记事</span>
+            <button class="close-drawer-btn" onclick="closeAllDrawers()">收起 >></button>
+        </div>
+        
+        <div class="special-list">
+            {% for s in special_notes %}
+            <div class="special-card">
+                <div class="special-content">{{ s.content }}</div>
+                {% if s.remark %}<div class="special-remark">{{ s.remark }}</div>{% endif %}
+                <div class="special-actions">
+                    <button class="btn-copy-mini" onclick="copyContent('{{ s.content|replace("'", "\\'") }}', this)">📋 复制</button>
+                    <span class="btn-del-special" onclick="triggerAuth('delete_special', {{ s.id }})">🗑️ 删除</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <button class="btn-show-form" onclick="document.getElementById('add-special-form').style.display = 'block'" style="background:var(--special-color); margin-top:20px;">＋ 新增记事</button>
+        <div id="add-special-form" class="add-profile-box" style="display:none; border-color:var(--special-color);">
+            <form id="realSpecialForm" action="/add_special_note" method="post" onsubmit="document.getElementById('realSpecialForm').submit();">
+                <input type="text" name="content" placeholder="内容 / 链接" required class="file-input">
+                <input type="text" name="remark" placeholder="备注 (可选)" class="file-input">
+                <button type="submit" class="btn-submit-addr" style="background:var(--special-color); width:100%; margin-top:5px;">保存</button>
             </form>
         </div>
     </aside>
@@ -496,23 +480,23 @@ HTML_TEMPLATE = '''
     <script>
         function toggleTheme() { try { const c = document.documentElement.getAttribute("data-theme"); const n = c === "dark" ? "light" : "dark"; document.documentElement.setAttribute("data-theme", n); localStorage.setItem("theme", n); } catch(e) {} }
         document.addEventListener("DOMContentLoaded", function() { const s = localStorage.getItem("theme") || "light"; document.documentElement.setAttribute("data-theme", s); const p = document.getElementById('authPassword'); if(p){ p.addEventListener("keypress", function(e) { if (e.key === "Enter") confirmAction(); }); } });
-        // Drawer Toggle
-        function toggleDrawer() {
-            var drawer = document.getElementById('rightDrawer');
+        
+        function toggleDrawer(id) {
             var overlay = document.getElementById('drawerOverlay');
-            if (drawer.classList.contains('open')) { drawer.classList.remove('open'); overlay.classList.remove('open'); }
-            else { drawer.classList.add('open'); overlay.classList.add('open'); }
+            var target = document.getElementById(id);
+            if (target.classList.contains('open')) { closeAllDrawers(); } else { closeAllDrawers(); target.classList.add('open'); overlay.classList.add('open'); }
         }
-        // Toggles
+        function closeAllDrawers() { document.getElementById('profileDrawer').classList.remove('open'); document.getElementById('specialDrawer').classList.remove('open'); document.getElementById('drawerOverlay').classList.remove('open'); }
+
         function toggleEdit(id) { var el = document.getElementById('edit-' + id); el.style.display = el.style.display === 'block' ? 'none' : 'block'; }
         function toggleAddrForm() { var el = document.getElementById('addr-form-container'); var btn = document.getElementById('btn-toggle-addr'); if (el.style.display === 'block') { el.style.display = 'none'; btn.innerText = '＋ 添加新备忘'; } else { el.style.display = 'block'; btn.innerText = '－ 收起'; } }
         function copyContent(text, btnElement) { navigator.clipboard.writeText(text).then(function() { var originalText = btnElement.innerText; btnElement.innerText = "OK"; setTimeout(function() { btnElement.innerText = originalText; }, 1500); }, function(err) { alert('复制失败'); }); }
-        // Modals
+        
         function openEditAddrModal(btn) { document.getElementById('edit_index').value = btn.dataset.index; document.getElementById('edit_name').value = btn.dataset.name; document.getElementById('edit_addr_val').value = btn.dataset.addr; document.getElementById('edit_uid_val').value = btn.dataset.uid; document.getElementById('editAddrModal').style.display = 'flex'; }
         function openEditTaskModal(id, url, remark) { document.getElementById('edit_task_id').value = id; document.getElementById('edit_task_url').value = url; document.getElementById('edit_task_remark').value = remark; document.getElementById('editTaskModal').style.display = 'flex'; }
         function openEditProfileModal(btn) { document.getElementById('edit_profile_id').value = btn.dataset.id; document.getElementById('edit_profile_name').value = btn.dataset.name; document.getElementById('edit_profile_remark').value = btn.dataset.remark; document.getElementById('edit_profile_acc').value = btn.dataset.acc; document.getElementById('edit_profile_link').value = btn.dataset.link; document.getElementById('editProfileModal').style.display = 'flex'; }
         function openColorModal() { document.getElementById('colorModal').style.display = 'flex'; }
-        // Auth
+        
         let pendingAction = null; let pendingData = null;
         function triggerAuth(action, data) {
             const modal = document.getElementById('authModal'); const passInput = document.getElementById('authPassword');
@@ -533,224 +517,10 @@ HTML_TEMPLATE = '''
                 else if (pendingAction === 'delete_profile') window.location.href = "/delete_profile/" + pendingData;
                 else if (pendingAction === 'edit_profile') document.getElementById('editProfileForm').submit();
                 else if (pendingAction === 'save_theme') document.getElementById('colorForm').submit();
+                else if (pendingAction === 'delete_special') window.location.href = "/delete_special_note/" + pendingData;
                 closeModal('authModal');
             } else { alert("密码错误！"); document.getElementById('authPassword').value = ""; }
         }
     </script>
 </body>
 </html>
-'''
-
-# --- 路由 ---
-@app.route('/')
-def index():
-    init_db()
-    settings = get_settings_dict()
-    global_accounts_str = ",".join(json.loads(settings.get('global_accounts', '[]')))
-    address_book = json.loads(settings.get('address_book', '[]'))
-    
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    
-    try:
-        c.execute('SELECT id, name, avatar, remark, account_number, link FROM profiles')
-        profiles = [{'id': r[0], 'name': r[1], 'avatar': r[2], 'remark': r[3], 'account_number': r[4], 'link': r[5]} for r in c.fetchall()]
-    except:
-        profiles = []
-        
-    c.execute('SELECT id, url, remark, target_accounts, done_accounts, enable_stats FROM bookmarks ORDER BY id DESC')
-    items = []
-    
-    for row in c.fetchall():
-        try: target_accs = json.loads(row[3])
-        except: target_accs = []
-        try: done_accs = json.loads(row[4])
-        except: done_accs = []
-        
-        items.append({
-            'id': row[0], 
-            'url': row[1], 
-            'remark': row[2], 
-            'target_accounts': target_accs, 
-            'target_accounts_str': ",".join(target_accs), 
-            'done_accounts': done_accs, 
-            'done_count': len(done_accs), 
-            'total_count': len(target_accs), 
-            'enable_stats': row[5]==1, 
-            'is_complete': len(done_accs)>=len(target_accs) and len(target_accs)>0
-        })
-        
-    conn.close()
-    return render_template_string(HTML_TEMPLATE, items=items, global_accounts_str=global_accounts_str, address_book=address_book, profiles=profiles, settings=settings)
-
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
-@app.route('/save_theme', methods=['POST'])
-def save_theme():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    # 增加 addr_name_color
-    for k in ['left_bg', 'left_text', 'right_bg', 'right_text', 'addr_name_color']:
-        if k in request.form:
-            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (k, request.form[k]))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/add_profile', methods=['POST'])
-def add_profile():
-    name = request.form['name']
-    remark = request.form['remark']
-    account_number = request.form['account_number']
-    link = request.form['link']
-    file = request.files['file']
-    
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        filename = str(int(time.time())) + "_" + filename
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        c.execute('INSERT INTO profiles (name, avatar, remark, account_number, link) VALUES (?, ?, ?, ?, ?)', (name, filename, remark, account_number, link))
-        conn.commit()
-        conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/edit_profile', methods=['POST'])
-def edit_profile():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('UPDATE profiles SET name=?, remark=?, account_number=?, link=? WHERE id=?', 
-              (request.form['name'], request.form['remark'], request.form['account_number'], request.form['link'], request.form['id']))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/delete_profile/<int:id>')
-def delete_profile(id):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('DELETE FROM profiles WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/edit_task_info', methods=['POST'])
-def edit_task_info():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('UPDATE bookmarks SET url = ?, remark = ? WHERE id = ?', 
-              (request.form['url'], request.form['remark'], request.form['id']))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/update_global_settings', methods=['POST'])
-def update_global_settings():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    new_list = [x.strip() for x in request.form['global_accounts_str'].replace('，', ',').split(',') if x.strip()]
-    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('global_accounts', json.dumps(new_list)))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/add_addr', methods=['POST'])
-def add_addr():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',))
-    row = c.fetchone()
-    l = json.loads(row[0]) if row else []
-    l.append({'name': request.form['name'], 'addr': request.form['addr'], 'uid': request.form['uid']})
-    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(l)))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/edit_addr', methods=['POST'])
-def edit_addr():
-    index = int(request.form['index'])
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',))
-    row = c.fetchone()
-    if row:
-        l = json.loads(row[0])
-        if 0 <= index < len(l):
-            l[index] = {'name': request.form['name'], 'addr': request.form['addr'], 'uid': request.form['uid']}
-            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(l)))
-            conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/delete_addr/<int:index>')
-def delete_addr(index):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',))
-    row = c.fetchone()
-    if row:
-        l = json.loads(row[0])
-        if 0 <= index < len(l):
-            l.pop(index)
-            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(l)))
-            conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/add', methods=['POST'])
-def add_entry():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('SELECT value FROM settings WHERE key = ?', ('global_accounts',))
-    default_accs = json.loads(c.fetchone()[0])
-    c.execute('INSERT INTO bookmarks (url, remark, target_accounts, done_accounts, enable_stats) VALUES (?, ?, ?, ?, 1)', 
-              (request.form['url'], request.form['remark'], json.dumps(default_accs), '[]'))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/toggle_stats/<int:id>')
-def toggle_stats(id):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('UPDATE bookmarks SET enable_stats = NOT enable_stats WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/update_item_accounts/<int:id>', methods=['POST'])
-def update_item_accounts(id):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    new_list = [x.strip() for x in request.form['target_accounts_str'].replace('，', ',').split(',') if x.strip()]
-    c.execute('UPDATE bookmarks SET target_accounts = ? WHERE id = ?', (json.dumps(new_list), id))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/update_progress/<int:id>', methods=['POST'])
-def update_progress(id):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('UPDATE bookmarks SET done_accounts = ? WHERE id = ?', (json.dumps(request.form.getlist('done_accounts')), id))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-@app.route('/delete/<int:id>')
-def delete_entry(id):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('DELETE FROM bookmarks WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
-
-if __name__ == '__main__':
-    init_db()
-    app.run(host='0.0.0.0', port=5000, debug=False)
