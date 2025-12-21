@@ -44,7 +44,14 @@ def init_db():
     if c.fetchone() is None:
         c.execute('INSERT INTO settings (key, value) VALUES (?, ?)', ('address_book', '[]'))
         
-    defaults = {'left_bg': '#2c3e50', 'left_text': '#ffffff', 'right_bg': '#ffffff', 'right_text': '#333333'}
+    # 初始化默认颜色配置 (新增 addr_name_color)
+    defaults = {
+        'left_bg': '#2c3e50', 
+        'left_text': '#ffffff', 
+        'right_bg': '#ffffff', 
+        'right_text': '#333333',
+        'addr_name_color': '#3498db'
+    }
     for k, v in defaults.items():
         c.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', (k, v))
         
@@ -73,6 +80,7 @@ HTML_TEMPLATE = '''
             --left-text: {{ settings.get('left_text', '#ffffff') }};
             --right-bg: {{ settings.get('right_bg', '#ffffff') }};
             --right-text: {{ settings.get('right_text', '#333333') }};
+            --addr-name-color: {{ settings.get('addr_name_color', '#3498db') }};
             
             --bg-color: #f4f4f9;
             --text-color: #333;
@@ -111,6 +119,7 @@ HTML_TEMPLATE = '''
             --highlight: #5dade2;
             --left-bg: #0f1519; --left-text: #ccc;
             --right-bg: #1e1e1e; --right-text: #ccc;
+            --addr-name-color: #5dade2; /* 夜间模式强制蓝色，避免看不清 */
         }
 
         * { box-sizing: border-box; }
@@ -124,7 +133,9 @@ HTML_TEMPLATE = '''
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.3); border-radius: 3px; }
 
-        .theme-switch-wrapper { position: fixed; top: 15px; right: 20px; z-index: 9999; }
+        /* 修复1: 降低主题按钮层级，防止遮挡抽屉 */
+        .theme-switch-wrapper { position: fixed; top: 15px; right: 20px; z-index: 9000; }
+        
         .theme-btn { 
             background: var(--btn-bg); border: 1px solid var(--border-color); color: var(--text-color); 
             padding: 8px 15px; cursor: pointer; border-radius: 20px; font-size: 14px; font-weight: bold;
@@ -132,14 +143,12 @@ HTML_TEMPLATE = '''
         }
         .theme-btn:hover { transform: scale(1.05); }
 
-        /* 左侧边栏 */
         .sidebar-left { 
             width: var(--left-sidebar-width); background: var(--left-bg); padding: 20px; 
             display: flex; flex-direction: column; position: fixed; left: 0; top: 0; bottom: 0; 
             overflow-y: auto; z-index: 100; box-shadow: 2px 0 10px rgba(0,0,0,0.2); transition: background 0.3s;
         }
         
-        /* 标题栏含颜色设置按钮 */
         .sidebar-header-row {
             display: flex; justify-content: space-between; align-items: center;
             border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 10px; margin-bottom: 15px;
@@ -157,15 +166,17 @@ HTML_TEMPLATE = '''
         }
         .drawer-handle:hover { padding-left: 10px; }
 
+        /* 修复2: 提高抽屉层级到 10001，覆盖所有按钮 */
         .sidebar-right {
             position: fixed; top: 0; right: 0; bottom: 0; width: var(--drawer-width); max-width: 90vw;
-            background: var(--right-bg); z-index: 3000; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: var(--right-bg); z-index: 10001; 
+            transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: -5px 0 20px rgba(0,0,0,0.2); padding: 20px; display: flex; flex-direction: column; overflow-y: auto;
         }
         .sidebar-right.open { transform: translateX(0); }
 
         .drawer-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2500;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000;
             display: none; backdrop-filter: blur(2px); opacity: 0; transition: opacity 0.3s;
         }
         .drawer-overlay.open { display: block; opacity: 1; }
@@ -209,26 +220,18 @@ HTML_TEMPLATE = '''
         .account-editor { width: 100%; height: 80px; background: rgba(255,255,255,0.9); border: none; border-radius: 4px; padding: 8px; margin-bottom: 8px; font-family: monospace; resize: vertical; font-size: 0.9em; color: #333; }
         .btn-save-settings { width: 100%; padding: 8px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em; }
         
-        /* 地址卡片 - 修复溢出问题 */
         .addr-card { background: var(--addr-card-bg); padding: 12px; border-radius: 6px; font-size: 0.85em; border: 1px solid rgba(128,128,128,0.2); }
         .addr-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed; padding-bottom: 5px; border-color: rgba(128,128,128,0.3); }
-        .addr-name { font-size: 1.2em; font-weight: 800; color: var(--highlight); } 
         
-        /* 这里的 flex 设置是防爆撑的关键 */
+        /* 使用自定义颜色变量 */
+        .addr-name { font-size: 1.2em; font-weight: 800; color: var(--addr-name-color); } 
+        
         .addr-row { display: flex; align-items: center; gap: 5px; margin-top: 6px; color: var(--addr-text); width: 100%; }
         .addr-val { 
-            flex: 1; /* 自动占据剩余空间 */
-            min-width: 0; /* 允许压缩到0，这是 text-overflow 生效的关键 */
-            overflow: hidden; 
-            text-overflow: ellipsis; 
-            white-space: nowrap; 
-            font-family: monospace; 
-            background: rgba(0,0,0,0.3); 
-            padding: 2px 5px; 
-            border-radius: 3px; 
-            color: #ccc; 
+            flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
+            font-family: monospace; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px; color: #ccc; 
         }
-        .btn-copy-icon { flex-shrink: 0; /* 按钮不许被压缩 */ background: none; border: 1px solid #576d80; color: #bdc3c7; cursor: pointer; border-radius: 3px; font-size: 0.8em; padding: 1px 6px; white-space: nowrap; }
+        .btn-copy-icon { flex-shrink: 0; background: none; border: 1px solid #576d80; color: #bdc3c7; cursor: pointer; border-radius: 3px; font-size: 0.8em; padding: 1px 6px; white-space: nowrap; }
         .btn-copy-icon.copied { background: #2ecc71; color: white; border-color: #2ecc71; }
         
         .btn-show-form { width: 100%; background: #27ae60; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px; }
@@ -275,7 +278,7 @@ HTML_TEMPLATE = '''
         .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
         .cb-label { display: flex; align-items: center; gap: 5px; font-size: 0.9em; background: var(--input-bg); padding: 5px 10px; border-radius: 4px; cursor: pointer; border: 1px solid var(--border-color); }
 
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 10000; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 20000; }
         .modal-box { background: var(--card-bg); padding: 30px; border-radius: 10px; text-align: center; width: 360px; box-shadow: 0 5px 20px rgba(0,0,0,0.4); border: 1px solid var(--border-color); }
         .modal-box h3 { margin-top: 0; color: var(--text-color); margin-bottom: 15px; }
         #authPassword { width: 100%; margin: 20px 0; padding: 15px; border: 2px solid var(--highlight); border-radius: 8px; background: var(--input-bg); color: var(--text-color); font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 2px; }
@@ -363,7 +366,7 @@ HTML_TEMPLATE = '''
                 </form>
             </div>
         </div>
-        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v4.7 (Fix)</div>
+        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v4.8 (Color+ZIndex)</div>
     </aside>
 
     <aside class="sidebar-right" id="rightDrawer">
@@ -470,7 +473,15 @@ HTML_TEMPLATE = '''
         <div class="modal-box"><h3>请验证</h3><input type="password" id="authPassword" maxlength="10"><div class="modal-buttons"><button class="btn-cancel" onclick="closeModal('authModal')">取消</button><button class="btn-confirm" onclick="confirmAction()">确认</button></div></div>
     </div>
     <div class="modal-overlay" id="colorModal">
-        <div class="modal-box"><h3>🎨 界面配色</h3><form id="colorForm" action="/save_theme" method="post" onsubmit="event.preventDefault(); triggerAuth('save_theme', this);"><div class="color-picker-row"><span class="color-picker-label">👈 左侧背景</span><input type="color" name="left_bg" value="{{ settings.get('left_bg', '#2c3e50') }}"></div><div class="color-picker-row"><span class="color-picker-label">👈 左侧文字</span><input type="color" name="left_text" value="{{ settings.get('left_text', '#ffffff') }}"></div><hr style="border:0; border-top:1px dashed #ddd; margin:15px 0;"><div class="color-picker-row"><span class="color-picker-label">👉 右侧背景</span><input type="color" name="right_bg" value="{{ settings.get('right_bg', '#ffffff') }}"></div><div class="color-picker-row"><span class="color-picker-label">👉 右侧文字</span><input type="color" name="right_text" value="{{ settings.get('right_text', '#333333') }}"></div><div class="modal-buttons"><button type="button" class="btn-cancel" onclick="closeModal('colorModal')">取消</button><button type="submit" class="btn-confirm">保存 (需密码)</button></div></form></div>
+        <div class="modal-box"><h3>🎨 界面配色</h3><form id="colorForm" action="/save_theme" method="post" onsubmit="event.preventDefault(); triggerAuth('save_theme', this);">
+            <div class="color-picker-row"><span class="color-picker-label">👈 左侧背景</span><input type="color" name="left_bg" value="{{ settings.get('left_bg', '#2c3e50') }}"></div>
+            <div class="color-picker-row"><span class="color-picker-label">👈 左侧文字</span><input type="color" name="left_text" value="{{ settings.get('left_text', '#ffffff') }}"></div>
+            <div class="color-picker-row"><span class="color-picker-label">🏦 地址本标题色</span><input type="color" name="addr_name_color" value="{{ settings.get('addr_name_color', '#3498db') }}"></div>
+            <hr style="border:0; border-top:1px dashed #ddd; margin:15px 0;">
+            <div class="color-picker-row"><span class="color-picker-label">👉 右侧背景</span><input type="color" name="right_bg" value="{{ settings.get('right_bg', '#ffffff') }}"></div>
+            <div class="color-picker-row"><span class="color-picker-label">👉 右侧文字</span><input type="color" name="right_text" value="{{ settings.get('right_text', '#333333') }}"></div>
+            <div class="modal-buttons"><button type="button" class="btn-cancel" onclick="closeModal('colorModal')">取消</button><button type="submit" class="btn-confirm">保存 (需密码)</button></div>
+        </form></div>
     </div>
     <div class="modal-overlay" id="editAddrModal">
         <div class="modal-box"><h3>✏️ 修改地址</h3><form id="editAddrForm" action="/edit_addr" method="post" onsubmit="event.preventDefault(); triggerAuth('edit_addr', this);"><input type="hidden" name="index" id="edit_index"><div class="modal-input-group"><label class="modal-input-label">备注:</label><input type="text" name="name" id="edit_name" class="modal-input" required></div><div class="modal-input-group"><label class="modal-input-label">Address:</label><input type="text" name="addr" id="edit_addr_val" class="modal-input"></div><div class="modal-input-group"><label class="modal-input-label">UID:</label><input type="text" name="uid" id="edit_uid_val" class="modal-input"></div><div class="modal-buttons"><button type="button" class="btn-cancel" onclick="closeModal('editAddrModal')">取消</button><button type="submit" class="btn-confirm">保存</button></div></form></div>
@@ -530,7 +541,7 @@ HTML_TEMPLATE = '''
 </html>
 '''
 
-# --- 路由 (完全展开写法) ---
+# --- 路由 ---
 @app.route('/')
 def index():
     init_db()
@@ -580,8 +591,10 @@ def uploaded_file(filename):
 def save_theme():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    for k in ['left_bg', 'left_text', 'right_bg', 'right_text']:
-        c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (k, request.form[k]))
+    # 增加 addr_name_color
+    for k in ['left_bg', 'left_text', 'right_bg', 'right_text', 'addr_name_color']:
+        if k in request.form:
+            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (k, request.form[k]))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
