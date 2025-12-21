@@ -22,25 +22,16 @@ def allowed_file(filename):
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    
-    # 创建表结构
     c.execute('''CREATE TABLE IF NOT EXISTS bookmarks (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT, remark TEXT, target_accounts TEXT, done_accounts TEXT, enable_stats INTEGER DEFAULT 1)''')
     c.execute('''CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, avatar TEXT, remark TEXT, account_number TEXT, link TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS special_notes (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT, remark TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
-    # 字段迁移
-    try:
-        c.execute('ALTER TABLE profiles ADD COLUMN account_number TEXT')
-    except:
-        pass
+    try: c.execute('ALTER TABLE profiles ADD COLUMN account_number TEXT')
+    except: pass
+    try: c.execute('ALTER TABLE profiles ADD COLUMN link TEXT')
+    except: pass
         
-    try:
-        c.execute('ALTER TABLE profiles ADD COLUMN link TEXT')
-    except:
-        pass
-        
-    # 初始化默认设置
     c.execute('SELECT value FROM settings WHERE key = ?', ('global_accounts',))
     if c.fetchone() is None:
         default_accs = json.dumps(['账号1', '账号2', '账号3'])
@@ -50,12 +41,9 @@ def init_db():
     if c.fetchone() is None:
         c.execute('INSERT INTO settings (key, value) VALUES (?, ?)', ('address_book', '[]'))
         
-    # 默认颜色配置
     defaults = {
-        'left_bg': '#2c3e50', 
-        'left_text': '#ffffff', 
-        'right_bg': '#ffffff', 
-        'right_text': '#333333',
+        'left_bg': '#2c3e50', 'left_text': '#ffffff', 
+        'right_bg': '#ffffff', 'right_text': '#333333',
         'addr_name_color': '#3498db'
     }
     for k, v in defaults.items():
@@ -103,8 +91,8 @@ HTML_TEMPLATE = '''
         .sidebar-left h3 { border-bottom-color: rgba(255,255,255,0.2); }
 
         .sidebar-right { color: var(--right-text) !important; }
-        .profile-name, .special-content { color: var(--right-text); }
-        .profile-remark, .special-remark { color: var(--right-text); opacity: 0.7; }
+        .profile-name { color: var(--right-text); }
+        .profile-remark { color: var(--right-text); opacity: 0.7; }
         .profile-bottom, .special-card { background: var(--input-bg); border-color: var(--border-color); }
 
         [data-theme="dark"] {
@@ -175,15 +163,23 @@ HTML_TEMPLATE = '''
         .profile-card:hover .action-icon { opacity: 0.6; }
         .action-icon:hover { opacity: 1; }
 
+        /* 特别记事样式 (更新版) */
         .header-special { color: var(--special-color); border-bottom-color: var(--special-color); }
         .special-list { display: flex; flex-direction: column; gap: 15px; }
         .special-card { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; position: relative; border-left: 4px solid var(--special-color); transition: 0.2s; }
         .special-card:hover { transform: translateX(-2px); box-shadow: 0 5px 15px var(--shadow); }
-        .special-content { font-size: 1.1em; font-weight: bold; margin-bottom: 5px; word-break: break-all; }
-        .special-remark { font-size: 0.9em; margin-bottom: 10px; }
-        .special-actions { display: flex; gap: 10px; justify-content: flex-end; align-items: center; margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 8px; }
+        
+        /* 备注变大 */
+        .special-remark { font-size: 1.1em; font-weight: bold; margin-bottom: 5px; color: var(--right-text); }
+        /* 网址/内容变小 */
+        .special-content { font-size: 0.9em; color: var(--right-text); opacity: 0.8; word-break: break-all; margin-bottom: 10px; }
+        .special-content a { color: var(--highlight); text-decoration: none; font-weight: bold; }
+        
+        .special-actions { display: flex; gap: 10px; justify-content: flex-end; align-items: center; margin-top: 5px; border-top: 1px dashed var(--border-color); padding-top: 8px; }
         .btn-del-special { color: #e74c3c; cursor: pointer; font-weight: bold; opacity: 0.6; font-size: 0.9em; }
         .btn-del-special:hover { opacity: 1; }
+        .btn-edit-special { color: #f39c12; cursor: pointer; font-weight: bold; opacity: 0.6; font-size: 0.9em; }
+        .btn-edit-special:hover { opacity: 1; }
 
         .main-content { margin-left: var(--left-sidebar-width); width: calc(100% - var(--left-sidebar-width)); padding: 40px; display: flex; flex-direction: column; align-items: center; }
         .content-container { width: 100%; max-width: 900px; }
@@ -334,7 +330,7 @@ HTML_TEMPLATE = '''
                 </form>
             </div>
         </div>
-        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v4.12 (Final Fix)</div>
+        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v4.13 (Special+)</div>
     </aside>
 
     <aside class="sidebar-right" id="profileDrawer">
@@ -393,11 +389,20 @@ HTML_TEMPLATE = '''
         <div class="special-list">
             {% for s in special_notes %}
             <div class="special-card">
-                <div class="special-content">{{ s.content }}</div>
                 {% if s.remark %}<div class="special-remark">{{ s.remark }}</div>{% endif %}
+                
+                <div class="special-content">
+                    {% if s.content.startswith('http') %}
+                        <a href="{{ s.content }}" target="_blank">{{ s.content }}</a>
+                    {% else %}
+                        {{ s.content }}
+                    {% endif %}
+                </div>
+                
                 <div class="special-actions">
-                    <button class="btn-copy-mini" onclick="copyContent('{{ s.content|replace("'", "\\'") }}', this)">📋 复制</button>
-                    <span class="btn-del-special" onclick="triggerAuth('delete_special', {{ s.id }})">🗑️ 删除</span>
+                    <span class="action-icon icon-edit btn-edit-special" 
+                          onclick="openEditSpecialModal({{ s.id }}, '{{ s.content|replace("'", "\\'") }}', '{{ s.remark|replace("'", "\\'") }}')">✏️ 修改</span>
+                    <span class="action-icon icon-del btn-del-special" onclick="triggerAuth('delete_special', {{ s.id }})">🗑️ 删除</span>
                 </div>
             </div>
             {% endfor %}
@@ -489,6 +494,10 @@ HTML_TEMPLATE = '''
         <div class="modal-box"><h3>✏️ 修改展示</h3><form id="editProfileForm" action="/edit_profile" method="post" onsubmit="event.preventDefault(); triggerAuth('edit_profile', this);"><input type="hidden" name="id" id="edit_profile_id"><div class="modal-input-group"><label class="modal-input-label">昵称:</label><input type="text" name="name" id="edit_profile_name" class="modal-input" required></div><div class="modal-input-group"><label class="modal-input-label">备注:</label><input type="text" name="remark" id="edit_profile_remark" class="modal-input"></div><div class="modal-input-group"><label class="modal-input-label">账户号:</label><input type="text" name="account_number" id="edit_profile_acc" class="modal-input"></div><div class="modal-input-group"><label class="modal-input-label">链接:</label><input type="text" name="link" id="edit_profile_link" class="modal-input"></div><div class="modal-buttons"><button type="button" class="btn-cancel" onclick="closeModal('editProfileModal')">取消</button><button type="submit" class="btn-confirm">保存</button></div></form></div>
     </div>
     
+    <div class="modal-overlay" id="editSpecialModal">
+        <div class="modal-box"><h3>✏️ 修改特别记事</h3><form id="editSpecialForm" action="/edit_special_note" method="post" onsubmit="event.preventDefault(); triggerAuth('edit_special_note', this);"><input type="hidden" name="id" id="edit_special_id"><div class="modal-input-group"><label class="modal-input-label">内容 / 链接:</label><input type="text" name="content" id="edit_special_content" class="modal-input" required></div><div class="modal-input-group"><label class="modal-input-label">备注:</label><input type="text" name="remark" id="edit_special_remark" class="modal-input"></div><div class="modal-buttons"><button type="button" class="btn-cancel" onclick="closeModal('editSpecialModal')">取消</button><button type="submit" class="btn-confirm">保存</button></div></form></div>
+    </div>
+    
     <script>
         function toggleTheme() { try { const c = document.documentElement.getAttribute("data-theme"); const n = c === "dark" ? "light" : "dark"; document.documentElement.setAttribute("data-theme", n); localStorage.setItem("theme", n); } catch(e) {} }
         document.addEventListener("DOMContentLoaded", function() { const s = localStorage.getItem("theme") || "light"; document.documentElement.setAttribute("data-theme", s); const p = document.getElementById('authPassword'); if(p){ p.addEventListener("keypress", function(e) { if (e.key === "Enter") confirmAction(); }); } });
@@ -507,13 +516,14 @@ HTML_TEMPLATE = '''
         function openEditAddrModal(btn) { document.getElementById('edit_index').value = btn.dataset.index; document.getElementById('edit_name').value = btn.dataset.name; document.getElementById('edit_addr_val').value = btn.dataset.addr; document.getElementById('edit_uid_val').value = btn.dataset.uid; document.getElementById('editAddrModal').style.display = 'flex'; }
         function openEditTaskModal(id, url, remark) { document.getElementById('edit_task_id').value = id; document.getElementById('edit_task_url').value = url; document.getElementById('edit_task_remark').value = remark; document.getElementById('editTaskModal').style.display = 'flex'; }
         function openEditProfileModal(btn) { document.getElementById('edit_profile_id').value = btn.dataset.id; document.getElementById('edit_profile_name').value = btn.dataset.name; document.getElementById('edit_profile_remark').value = btn.dataset.remark; document.getElementById('edit_profile_acc').value = btn.dataset.acc; document.getElementById('edit_profile_link').value = btn.dataset.link; document.getElementById('editProfileModal').style.display = 'flex'; }
+        function openEditSpecialModal(id, content, remark) { document.getElementById('edit_special_id').value = id; document.getElementById('edit_special_content').value = content; document.getElementById('edit_special_remark').value = remark; document.getElementById('editSpecialModal').style.display = 'flex'; }
         function openColorModal() { document.getElementById('colorModal').style.display = 'flex'; }
         
         let pendingAction = null; let pendingData = null;
         function triggerAuth(action, data) {
             const modal = document.getElementById('authModal'); const passInput = document.getElementById('authPassword');
             pendingAction = action; pendingData = data; passInput.value = ""; 
-            ['editAddrModal', 'editTaskModal', 'editProfileModal', 'colorModal'].forEach(id => document.getElementById(id).style.display = 'none');
+            ['editAddrModal', 'editTaskModal', 'editProfileModal', 'colorModal', 'editSpecialModal'].forEach(id => document.getElementById(id).style.display = 'none');
             modal.style.display = 'flex'; passInput.focus();
         }
         function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; pendingAction = null; pendingData = null; }
@@ -530,6 +540,7 @@ HTML_TEMPLATE = '''
                 else if (pendingAction === 'edit_profile') document.getElementById('editProfileForm').submit();
                 else if (pendingAction === 'save_theme') document.getElementById('colorForm').submit();
                 else if (pendingAction === 'delete_special') window.location.href = "/delete_special_note/" + pendingData;
+                else if (pendingAction === 'edit_special_note') document.getElementById('editSpecialForm').submit();
                 closeModal('authModal');
             } else { alert("密码错误！"); document.getElementById('authPassword').value = ""; }
         }
@@ -538,7 +549,7 @@ HTML_TEMPLATE = '''
 </html>
 '''
 
-# --- 路由 (完全展开写法) ---
+# --- 路由 ---
 @app.route('/')
 def index():
     init_db()
@@ -647,6 +658,16 @@ def add_special_note():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute('INSERT INTO special_notes (content, remark) VALUES (?, ?)', (content, remark))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/edit_special_note', methods=['POST'])
+def edit_special_note():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE special_notes SET content = ?, remark = ? WHERE id = ?', 
+              (request.form['content'], request.form['remark'], request.form['id']))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
