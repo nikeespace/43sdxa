@@ -27,14 +27,10 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, avatar TEXT, remark TEXT, account_number TEXT, link TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS special_notes (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT, remark TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
-    try: 
-        c.execute('ALTER TABLE profiles ADD COLUMN account_number TEXT')
-    except: 
-        pass
-    try: 
-        c.execute('ALTER TABLE profiles ADD COLUMN link TEXT')
-    except: 
-        pass
+    try: c.execute('ALTER TABLE profiles ADD COLUMN account_number TEXT')
+    except: pass
+    try: c.execute('ALTER TABLE profiles ADD COLUMN link TEXT')
+    except: pass
         
     c.execute('SELECT value FROM settings WHERE key = ?', ('global_accounts',))
     if c.fetchone() is None:
@@ -506,4 +502,320 @@ HTML_TEMPLATE = '''
         </form></div>
     </div>
     <div class="modal-overlay" id="editAddrModal">
-        <div class="modal-box"><h3>✏️ 修改地址</h3><form id="editAddrForm" action
+        <div class="modal-box"><h3>✏️ 修改地址</h3><form id="editAddrForm" action="/edit_addr" method="post" onsubmit="event.preventDefault(); triggerAuth('edit_addr', this);"><input type="hidden" name="index" id="edit_index"><div class="modal-input-group"><label class="modal-input-label">备注:</label><input type="text" name="name" id="edit_name" class="modal-input" required></div><div class="modal-input-group"><label class="modal-input-label">Address:</label><input type="text" name="addr" id="edit_addr_val" class="modal-input"></div><div class="modal-input-group"><label class="modal-input-label">UID:</label><input type="text" name="uid" id="edit_uid_val" class="modal-input"></div><div class="modal-buttons"><button type="button" class="btn-cancel" onclick="closeModal('editAddrModal')">取消</button><button type="submit" class="btn-confirm">保存</button></div></form></div>
+    </div>
+    <div class="modal-overlay" id="editTaskModal">
+        <div class="modal-box"><h3>✏️ 修改小记</h3><form id="editTaskForm" action="/edit_task_info" method="post" onsubmit="event.preventDefault(); triggerAuth('edit_task_info', this);"><input type="hidden" name="id" id="edit_task_id"><div class="modal-input-group"><label class="modal-input-label">内容:</label><input type="text" name="url" id="edit_task_url" class="modal-input" required></div><div class="modal-input-group"><label class="modal-input-label">备注:</label><input type="text" name="remark" id="edit_task_remark" class="modal-input"></div><div class="modal-buttons"><button type="button" class="btn-cancel" onclick="closeModal('editTaskModal')">取消</button><button type="submit" class="btn-confirm">保存</button></div></form></div>
+    </div>
+    <div class="modal-overlay" id="editProfileModal">
+        <div class="modal-box"><h3>✏️ 修改展示</h3><form id="editProfileForm" action="/edit_profile" method="post" onsubmit="event.preventDefault(); triggerAuth('edit_profile', this);"><input type="hidden" name="id" id="edit_profile_id"><div class="modal-input-group"><label class="modal-input-label">昵称:</label><input type="text" name="name" id="edit_profile_name" class="modal-input" required></div><div class="modal-input-group"><label class="modal-input-label">备注:</label><input type="text" name="remark" id="edit_profile_remark" class="modal-input"></div><div class="modal-input-group"><label class="modal-input-label">账户号:</label><input type="text" name="account_number" id="edit_profile_acc" class="modal-input"></div><div class="modal-input-group"><label class="modal-input-label">链接:</label><input type="text" name="link" id="edit_profile_link" class="modal-input"></div><div class="modal-buttons"><button type="button" class="btn-cancel" onclick="closeModal('editProfileModal')">取消</button><button type="submit" class="btn-confirm">保存</button></div></form></div>
+    </div>
+    
+    <div class="modal-overlay" id="editSpecialModal">
+        <div class="modal-box"><h3>✏️ 修改特别记事</h3><form id="editSpecialForm" action="/edit_special_note" method="post" onsubmit="event.preventDefault(); triggerAuth('edit_special_note', this);">
+            <input type="hidden" name="id" id="edit_special_id">
+            <div class="modal-input-group"><label class="modal-input-label">内容 (支持换行):</label><textarea name="remark" id="edit_special_remark" class="special-textarea"></textarea></div>
+            <div class="modal-input-group"><label class="modal-input-label">链接:</label><input type="text" name="content" id="edit_special_content" class="modal-input"></div>
+            <div class="modal-buttons"><button type="button" class="btn-cancel" onclick="closeModal('editSpecialModal')">取消</button><button type="submit" class="btn-confirm">保存</button></div>
+        </form></div>
+    </div>
+    
+    <script>
+        function toggleTheme() { try { const c = document.documentElement.getAttribute("data-theme"); const n = c === "dark" ? "light" : "dark"; document.documentElement.setAttribute("data-theme", n); localStorage.setItem("theme", n); } catch(e) {} }
+        document.addEventListener("DOMContentLoaded", function() { const s = localStorage.getItem("theme") || "light"; document.documentElement.setAttribute("data-theme", s); const p = document.getElementById('authPassword'); if(p){ p.addEventListener("keypress", function(e) { if (e.key === "Enter") confirmAction(); }); } });
+        
+        function toggleDrawer(id) {
+            var overlay = document.getElementById('drawerOverlay');
+            var target = document.getElementById(id);
+            if (target.classList.contains('open')) { closeAllDrawers(); } else { closeAllDrawers(); target.classList.add('open'); overlay.classList.add('open'); }
+        }
+        function closeAllDrawers() { document.getElementById('profileDrawer').classList.remove('open'); document.getElementById('specialDrawer').classList.remove('open'); document.getElementById('drawerOverlay').classList.remove('open'); }
+
+        function toggleEdit(id) { var el = document.getElementById('edit-' + id); el.style.display = el.style.display === 'block' ? 'none' : 'block'; }
+        function toggleAddrForm() { var el = document.getElementById('addr-form-container'); var btn = document.getElementById('btn-toggle-addr'); if (el.style.display === 'block') { el.style.display = 'none'; btn.innerText = '＋ 添加新备忘'; } else { el.style.display = 'block'; btn.innerText = '－ 收起'; } }
+        function copyContent(text, btnElement) { navigator.clipboard.writeText(text).then(function() { var originalText = btnElement.innerText; btnElement.innerText = "OK"; setTimeout(function() { btnElement.innerText = originalText; }, 1500); }, function(err) { alert('复制失败'); }); }
+        
+        function openEditAddrModal(btn) { document.getElementById('edit_index').value = btn.dataset.index; document.getElementById('edit_name').value = btn.dataset.name; document.getElementById('edit_addr_val').value = btn.dataset.addr; document.getElementById('edit_uid_val').value = btn.dataset.uid; document.getElementById('editAddrModal').style.display = 'flex'; }
+        function openEditTaskModal(id, url, remark) { document.getElementById('edit_task_id').value = id; document.getElementById('edit_task_url').value = url; document.getElementById('edit_task_remark').value = remark; document.getElementById('editTaskModal').style.display = 'flex'; }
+        function openEditProfileModal(btn) { document.getElementById('edit_profile_id').value = btn.dataset.id; document.getElementById('edit_profile_name').value = btn.dataset.name; document.getElementById('edit_profile_remark').value = btn.dataset.remark; document.getElementById('edit_profile_acc').value = btn.dataset.acc; document.getElementById('edit_profile_link').value = btn.dataset.link; document.getElementById('editProfileModal').style.display = 'flex'; }
+        function openEditSpecialModal(id, content, remark) { document.getElementById('edit_special_id').value = id; document.getElementById('edit_special_content').value = content; document.getElementById('edit_special_remark').value = remark; document.getElementById('editSpecialModal').style.display = 'flex'; }
+        function openColorModal() { document.getElementById('colorModal').style.display = 'flex'; }
+        
+        let pendingAction = null; let pendingData = null;
+        function triggerAuth(action, data) {
+            const modal = document.getElementById('authModal'); const passInput = document.getElementById('authPassword');
+            pendingAction = action; pendingData = data; passInput.value = ""; 
+            ['editAddrModal', 'editTaskModal', 'editProfileModal', 'colorModal', 'editSpecialModal'].forEach(id => document.getElementById(id).style.display = 'none');
+            modal.style.display = 'flex'; passInput.focus();
+        }
+        function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; pendingAction = null; pendingData = null; }
+        function confirmAction() {
+            const password = document.getElementById('authPassword').value;
+            if (password === "110") {
+                if (pendingAction === 'delete_addr') window.location.href = "/delete_addr/" + pendingData;
+                else if (pendingAction === 'add_addr') document.getElementById('realAddForm').submit();
+                else if (pendingAction === 'delete_task') window.location.href = "/delete/" + pendingData;
+                else if (pendingAction === 'edit_addr') document.getElementById('editAddrForm').submit();
+                else if (pendingAction === 'edit_task_info') document.getElementById('editTaskForm').submit();
+                else if (pendingAction === 'add_profile') document.getElementById('realProfileForm').submit();
+                else if (pendingAction === 'delete_profile') window.location.href = "/delete_profile/" + pendingData;
+                else if (pendingAction === 'edit_profile') document.getElementById('editProfileForm').submit();
+                else if (pendingAction === 'save_theme') document.getElementById('colorForm').submit();
+                else if (pendingAction === 'delete_special') window.location.href = "/delete_special_note/" + pendingData;
+                else if (pendingAction === 'edit_special_note') document.getElementById('editSpecialForm').submit();
+                closeModal('authModal');
+            } else { alert("密码错误！"); document.getElementById('authPassword').value = ""; }
+        }
+    </script>
+</body>
+</html>
+'''
+
+# --- 路由 ---
+@app.route('/')
+def index():
+    init_db()
+    settings = get_settings_dict()
+    global_accounts_str = ",".join(json.loads(settings.get('global_accounts', '[]')))
+    address_book = json.loads(settings.get('address_book', '[]'))
+    
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    
+    try:
+        c.execute('SELECT id, name, avatar, remark, account_number, link FROM profiles')
+        profiles = [{'id': r[0], 'name': r[1], 'avatar': r[2], 'remark': r[3], 'account_number': r[4], 'link': r[5]} for r in c.fetchall()]
+    except:
+        profiles = []
+        
+    try:
+        c.execute('SELECT id, content, remark FROM special_notes ORDER BY id DESC')
+        special_notes = [{'id': r[0], 'content': r[1], 'remark': r[2]} for r in c.fetchall()]
+    except:
+        special_notes = []
+        
+    c.execute('SELECT id, url, remark, target_accounts, done_accounts, enable_stats FROM bookmarks ORDER BY id DESC')
+    items = []
+    
+    for row in c.fetchall():
+        try: target_accs = json.loads(row[3])
+        except: target_accs = []
+        try: done_accs = json.loads(row[4])
+        except: done_accs = []
+        
+        items.append({
+            'id': row[0], 
+            'url': row[1], 
+            'remark': row[2], 
+            'target_accounts': target_accs, 
+            'target_accounts_str': ",".join(target_accs), 
+            'done_accounts': done_accs, 
+            'done_count': len(done_accs), 
+            'total_count': len(target_accs), 
+            'enable_stats': row[5]==1, 
+            'is_complete': len(done_accs)>=len(target_accs) and len(target_accs)>0
+        })
+        
+    conn.close()
+    return render_template_string(HTML_TEMPLATE, items=items, global_accounts_str=global_accounts_str, address_book=address_book, profiles=profiles, special_notes=special_notes, settings=settings)
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+@app.route('/save_theme', methods=['POST'])
+def save_theme():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    for k in ['left_bg', 'left_text', 'right_bg', 'right_text', 'addr_name_color']:
+        if k in request.form:
+            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (k, request.form[k]))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/add_profile', methods=['POST'])
+def add_profile():
+    name = request.form['name']
+    remark = request.form['remark']
+    account_number = request.form['account_number']
+    link = request.form['link']
+    file = request.files['file']
+    
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        filename = str(int(time.time())) + "_" + filename
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute('INSERT INTO profiles (name, avatar, remark, account_number, link) VALUES (?, ?, ?, ?, ?)', (name, filename, remark, account_number, link))
+        conn.commit()
+        conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/edit_profile', methods=['POST'])
+def edit_profile():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE profiles SET name=?, remark=?, account_number=?, link=? WHERE id=?', 
+              (request.form['name'], request.form['remark'], request.form['account_number'], request.form['link'], request.form['id']))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/delete_profile/<int:id>')
+def delete_profile(id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('DELETE FROM profiles WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/add_special_note', methods=['POST'])
+def add_special_note():
+    content = request.form['content']
+    remark = request.form['remark']
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('INSERT INTO special_notes (content, remark) VALUES (?, ?)', (content, remark))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/edit_special_note', methods=['POST'])
+def edit_special_note():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE special_notes SET content = ?, remark = ? WHERE id = ?', 
+              (request.form['content'], request.form['remark'], request.form['id']))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/delete_special_note/<int:id>')
+def delete_special_note(id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('DELETE FROM special_notes WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/edit_task_info', methods=['POST'])
+def edit_task_info():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE bookmarks SET url = ?, remark = ? WHERE id = ?', 
+              (request.form['url'], request.form['remark'], request.form['id']))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/update_global_settings', methods=['POST'])
+def update_global_settings():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    new_list = [x.strip() for x in request.form['global_accounts_str'].replace('，', ',').split(',') if x.strip()]
+    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('global_accounts', json.dumps(new_list)))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/add_addr', methods=['POST'])
+def add_addr():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',))
+    row = c.fetchone()
+    l = json.loads(row[0]) if row else []
+    l.append({'name': request.form['name'], 'addr': request.form['addr'], 'uid': request.form['uid']})
+    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(l)))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/edit_addr', methods=['POST'])
+def edit_addr():
+    index = int(request.form['index'])
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',))
+    row = c.fetchone()
+    if row:
+        l = json.loads(row[0])
+        if 0 <= index < len(l):
+            l[index] = {'name': request.form['name'], 'addr': request.form['addr'], 'uid': request.form['uid']}
+            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(l)))
+            conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/delete_addr/<int:index>')
+def delete_addr(index):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',))
+    row = c.fetchone()
+    if row:
+        l = json.loads(row[0])
+        if 0 <= index < len(l):
+            l.pop(index)
+            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(l)))
+            conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/add', methods=['POST'])
+def add_entry():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT value FROM settings WHERE key = ?', ('global_accounts',))
+    default_accs = json.loads(c.fetchone()[0])
+    c.execute('INSERT INTO bookmarks (url, remark, target_accounts, done_accounts, enable_stats) VALUES (?, ?, ?, ?, 1)', 
+              (request.form['url'], request.form['remark'], json.dumps(default_accs), '[]'))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/toggle_stats/<int:id>')
+def toggle_stats(id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE bookmarks SET enable_stats = NOT enable_stats WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/update_item_accounts/<int:id>', methods=['POST'])
+def update_item_accounts(id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    new_list = [x.strip() for x in request.form['target_accounts_str'].replace('，', ',').split(',') if x.strip()]
+    c.execute('UPDATE bookmarks SET target_accounts = ? WHERE id = ?', (json.dumps(new_list), id))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/update_progress/<int:id>', methods=['POST'])
+def update_progress(id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE bookmarks SET done_accounts = ? WHERE id = ?', (json.dumps(request.form.getlist('done_accounts')), id))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.route('/delete/<int:id>')
+def delete_entry(id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('DELETE FROM bookmarks WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    init_db()
+    app.run(host='0.0.0.0', port=5000, debug=False)
