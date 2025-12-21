@@ -77,11 +77,9 @@ HTML_TEMPLATE = '''
             --highlight: #3498db;
             
             --left-sidebar-width: 320px;
-            /* 右侧宽度不再固定，而是抽屉宽度 */
             --drawer-width: 800px; 
         }
 
-        /* 颜色适配 */
         .sidebar-left { color: var(--left-text) !important; }
         .sidebar-left .addr-row { color: var(--left-text); opacity: 0.8; }
         .sidebar-left .sidebar-desc { color: var(--left-text); opacity: 0.6; }
@@ -125,65 +123,31 @@ HTML_TEMPLATE = '''
         }
         .theme-btn:hover { transform: scale(1.05); }
 
-        /* 左侧边栏 (保持不变) */
         .sidebar-left { 
             width: var(--left-sidebar-width); background: var(--left-bg); padding: 20px; 
             display: flex; flex-direction: column; position: fixed; left: 0; top: 0; bottom: 0; 
             overflow-y: auto; z-index: 100; box-shadow: 2px 0 10px rgba(0,0,0,0.2); transition: background 0.3s;
         }
 
-        /* --- 👉 右侧抽屉 (重大重构) --- */
-        
-        /* 1. 触发按钮 (平时露在外面) */
         .drawer-handle {
-            position: fixed;
-            top: 50%;
-            right: 0;
-            transform: translateY(-50%);
-            background: var(--highlight);
-            color: white;
-            padding: 15px 5px;
-            cursor: pointer;
-            z-index: 2000;
-            border-top-left-radius: 8px;
-            border-bottom-left-radius: 8px;
-            writing-mode: vertical-rl; /* 竖排文字 */
-            text-orientation: upright;
-            font-weight: bold;
-            box-shadow: -2px 0 10px rgba(0,0,0,0.2);
-            transition: right 0.3s ease;
-            letter-spacing: 2px;
+            position: fixed; top: 50%; right: 0; transform: translateY(-50%);
+            background: var(--highlight); color: white; padding: 15px 5px; cursor: pointer; z-index: 2000;
+            border-top-left-radius: 8px; border-bottom-left-radius: 8px;
+            writing-mode: vertical-rl; text-orientation: upright; font-weight: bold;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.2); transition: right 0.3s ease; letter-spacing: 2px;
         }
         .drawer-handle:hover { padding-left: 10px; }
 
-        /* 2. 抽屉面板 (平时隐藏在右侧屏幕外) */
         .sidebar-right {
-            position: fixed;
-            top: 0; right: 0; bottom: 0;
-            width: var(--drawer-width);
-            max-width: 90vw; /* 手机上不要超过90% */
-            background: var(--right-bg);
-            z-index: 3000;
-            transform: translateX(100%); /* 移出屏幕 */
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: -5px 0 20px rgba(0,0,0,0.2);
-            padding: 20px;
-            display: flex; flex-direction: column;
-            overflow-y: auto;
+            position: fixed; top: 0; right: 0; bottom: 0; width: var(--drawer-width); max-width: 90vw;
+            background: var(--right-bg); z-index: 3000; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: -5px 0 20px rgba(0,0,0,0.2); padding: 20px; display: flex; flex-direction: column; overflow-y: auto;
         }
-        
-        /* 激活状态 */
         .sidebar-right.open { transform: translateX(0); }
 
-        /* 3. 遮罩层 (点击关闭) */
         .drawer-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 2500;
-            display: none; /* 平时隐藏 */
-            backdrop-filter: blur(2px);
-            opacity: 0;
-            transition: opacity 0.3s;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2500;
+            display: none; backdrop-filter: blur(2px); opacity: 0; transition: opacity 0.3s;
         }
         .drawer-overlay.open { display: block; opacity: 1; }
 
@@ -191,58 +155,35 @@ HTML_TEMPLATE = '''
         .close-drawer-btn { font-size: 0.8em; cursor: pointer; color: var(--right-text); opacity: 0.5; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px; }
         .close-drawer-btn:hover { opacity: 1; background: var(--btn-bg); }
 
-        /* 4. 网格布局 (核心：支持多列) */
-        #profile-list { 
-            display: grid;
-            /* 自动填充，每列最小200px，这样宽屏自动多列，窄屏自动少列 */
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); 
-            gap: 15px; 
-            padding-bottom: 20px;
-        }
+        #profile-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; padding-bottom: 20px; }
 
         .profile-card {
-            background: var(--input-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 12px;
-            display: flex; flex-direction: column; position: relative;
-            transition: transform 0.2s; box-shadow: 0 2px 5px var(--shadow);
-            height: 100%; /* 等高 */
+            background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;
+            display: flex; flex-direction: column; position: relative; transition: transform 0.2s; box-shadow: 0 2px 5px var(--shadow); height: 100%;
         }
         .profile-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px var(--shadow); z-index: 2; }
 
         .profile-top { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
         .profile-avatar {
             width: 50px; height: 50px; border-radius: 50%; object-fit: cover;
-            border: 2px solid var(--border-color); background: #eee;
-            cursor: pointer; transition: transform 0.2s;
+            border: 2px solid var(--border-color); background: #eee; cursor: pointer; transition: transform 0.2s;
         }
         .profile-avatar:hover { transform: scale(1.1); border-color: var(--highlight); }
 
         .profile-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
         .profile-name { font-weight: bold; font-size: 1.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .profile-remark { font-size: 0.8em; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-        .profile-bottom {
-            border-radius: 4px; padding: 6px; display: flex; align-items: center; justify-content: space-between; font-size: 0.85em; margin-top: auto; /* 推到底部 */
-        }
+        .profile-bottom { border-radius: 4px; padding: 6px; display: flex; align-items: center; justify-content: space-between; font-size: 0.85em; margin-top: auto; }
         .acc-num { font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
         
         .profile-actions { position: absolute; top: 5px; right: 5px; display: flex; gap: 5px; }
         .action-icon { cursor: pointer; font-size: 1.1em; opacity: 0.2; transition: 0.2s; }
-        .profile-card:hover .action-icon { opacity: 0.6; } /* 只有鼠标悬停卡片时才显示明显操作 */
+        .profile-card:hover .action-icon { opacity: 0.6; }
         .action-icon:hover { opacity: 1; }
         
-        /* 🏠 主内容 (居中，因为右侧现在是悬浮的，不占位置) */
-        .main-content { 
-            margin-left: var(--left-sidebar-width); 
-            width: calc(100% - var(--left-sidebar-width)); /* 占满剩余空间 */
-            padding: 40px; 
-            display: flex; flex-direction: column; align-items: center; 
-        }
+        .main-content { margin-left: var(--left-sidebar-width); width: calc(100% - var(--left-sidebar-width)); padding: 40px; display: flex; flex-direction: column; align-items: center; }
         .content-container { width: 100%; max-width: 900px; }
 
-        /* 通用样式保持精简 */
         .sidebar-left h3 { margin-top: 0; border-bottom: 1px solid; padding-bottom: 10px; margin-bottom: 15px; font-size: 1.1em; }
         .sidebar-desc { font-size: 0.8em; margin-bottom: 10px; }
         .setting-box { background: rgba(128,128,128,0.1); padding: 15px; border-radius: 8px; margin-bottom: 25px; border: 1px solid rgba(128,128,128,0.2); }
@@ -299,7 +240,6 @@ HTML_TEMPLATE = '''
         .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
         .cb-label { display: flex; align-items: center; gap: 5px; font-size: 0.9em; background: var(--input-bg); padding: 5px 10px; border-radius: 4px; cursor: pointer; border: 1px solid var(--border-color); }
 
-        /* 🔐 安全弹窗 */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 10000; }
         .modal-box { background: var(--card-bg); padding: 30px; border-radius: 10px; text-align: center; width: 360px; box-shadow: 0 5px 20px rgba(0,0,0,0.4); border: 1px solid var(--border-color); }
         .modal-box h3 { margin-top: 0; color: var(--text-color); margin-bottom: 15px; }
@@ -378,7 +318,7 @@ HTML_TEMPLATE = '''
                 </form>
             </div>
         </div>
-        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v4.4 (Drawer)</div>
+        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v4.5 (Drawer Fixed)</div>
     </aside>
 
     <aside class="sidebar-right" id="rightDrawer">
@@ -563,7 +503,8 @@ def index():
     conn.close(); return render_template_string(HTML_TEMPLATE, items=items, global_accounts_str=global_accounts_str, address_book=address_book, profiles=profiles, settings=settings)
 
 @app.route('/uploads/<filename>')
-def uploaded_file(filename): return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/save_theme', methods=['POST'])
 def save_theme():
@@ -573,40 +514,175 @@ def save_theme():
 
 @app.route('/add_profile', methods=['POST'])
 def add_profile():
-    name = request.form['name']; remark = request.form['remark']; account_number = request.form['account_number']; link = request.form['link']; file = request.files['file']
-    if file and allowed_file(file.filename): filename = secure_filename(file.filename); filename = str(int(time.time())) + "_" + filename; file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename)); conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('INSERT INTO profiles (name, avatar, remark, account_number, link) VALUES (?, ?, ?, ?, ?)', (name, filename, remark, account_number, link)); conn.commit(); conn.close()
+    name = request.form['name']
+    remark = request.form['remark']
+    account_number = request.form['account_number']
+    link = request.form['link']
+    file = request.files['file']
+    
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        filename = str(int(time.time())) + "_" + filename
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute('INSERT INTO profiles (name, avatar, remark, account_number, link) VALUES (?, ?, ?, ?, ?)', 
+                  (name, filename, remark, account_number, link))
+        conn.commit()
+        conn.close()
     return redirect(url_for('index'))
 
 @app.route('/edit_profile', methods=['POST'])
-def edit_profile(): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('UPDATE profiles SET name=?, remark=?, account_number=?, link=? WHERE id=?', (request.form['name'], request.form['remark'], request.form['account_number'], request.form['link'], request.form['id'])); conn.commit(); conn.close(); return redirect(url_for('index'))
+def edit_profile():
+    pid = request.form['id']
+    name = request.form['name']
+    remark = request.form['remark']
+    account_number = request.form['account_number']
+    link = request.form['link']
+    
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE profiles SET name=?, remark=?, account_number=?, link=? WHERE id=?', 
+              (name, remark, account_number, link, pid))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
 @app.route('/delete_profile/<int:id>')
-def delete_profile(id): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('DELETE FROM profiles WHERE id = ?', (id,)); conn.commit(); conn.close(); return redirect(url_for('index'))
+def delete_profile(id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('DELETE FROM profiles WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
 @app.route('/edit_task_info', methods=['POST'])
-def edit_task_info(): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('UPDATE bookmarks SET url = ?, remark = ? WHERE id = ?', (request.form['url'], request.form['remark'], request.form['id'])); conn.commit(); conn.close(); return redirect(url_for('index'))
+def edit_task_info():
+    task_id = request.form['id']
+    url = request.form['url']
+    remark = request.form['remark']
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE bookmarks SET url = ?, remark = ? WHERE id = ?', (url, remark, task_id))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
 @app.route('/update_global_settings', methods=['POST'])
-def update_global_settings(): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('global_accounts', json.dumps([x.strip() for x in request.form['global_accounts_str'].replace('，', ',').split(',') if x.strip()]))); conn.commit(); conn.close(); return redirect(url_for('index'))
+def update_global_settings():
+    raw_str = request.form['global_accounts_str']
+    new_list = [x.strip() for x in raw_str.replace('，', ',').split(',') if x.strip()]
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('global_accounts', json.dumps(new_list)))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
 @app.route('/add_addr', methods=['POST'])
-def add_addr(): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',)); row = c.fetchone(); l = json.loads(row[0]) if row else []; l.append({'name': request.form['name'], 'addr': request.form['addr'], 'uid': request.form['uid']}); c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(l))); conn.commit(); conn.close(); return redirect(url_for('index'))
+def add_addr():
+    name = request.form['name']
+    addr = request.form['addr']
+    uid = request.form['uid']
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',))
+    row = c.fetchone()
+    current_list = json.loads(row[0]) if row else []
+    current_list.append({'name': name, 'addr': addr, 'uid': uid})
+    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(current_list)))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
 @app.route('/edit_addr', methods=['POST'])
-def edit_addr(): index = int(request.form['index']); conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',)); row = c.fetchone(); 
-    if row: l = json.loads(row[0]); 
-    if 0 <= index < len(l): l[index] = {'name': request.form['name'], 'addr': request.form['addr'], 'uid': request.form['uid']}; c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(l))); conn.commit(); 
-    conn.close(); return redirect(url_for('index'))
+def edit_addr():
+    index = int(request.form['index'])
+    name = request.form['name']
+    addr = request.form['addr']
+    uid = request.form['uid']
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',))
+    row = c.fetchone()
+    if row:
+        current_list = json.loads(row[0])
+        if 0 <= index < len(current_list):
+            current_list[index] = {'name': name, 'addr': addr, 'uid': uid}
+            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(current_list)))
+            conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
 @app.route('/delete_addr/<int:index>')
-def delete_addr(index): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',)); row = c.fetchone(); 
-    if row: l = json.loads(row[0]); 
-    if 0 <= index < len(l): l.pop(index); c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(l))); conn.commit(); 
-    conn.close(); return redirect(url_for('index'))
+def delete_addr(index):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('SELECT value FROM settings WHERE key = ?', ('address_book',))
+    row = c.fetchone()
+    if row:
+        current_list = json.loads(row[0])
+        if 0 <= index < len(current_list):
+            current_list.pop(index)
+            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('address_book', json.dumps(current_list)))
+            conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
 @app.route('/add', methods=['POST'])
-def add_entry(): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('SELECT value FROM settings WHERE key = ?', ('global_accounts',)); default_accs = json.loads(c.fetchone()[0]); c.execute('INSERT INTO bookmarks (url, remark, target_accounts, done_accounts, enable_stats) VALUES (?, ?, ?, ?, 1)', (request.form['url'], request.form['remark'], json.dumps(default_accs), '[]')); conn.commit(); conn.close(); return redirect(url_for('index'))
+def add_entry():
+    url = request.form['url']
+    remark = request.form['remark']
+    default_accs = get_settings_dict().get('global_accounts')
+    default_accs = json.loads(default_accs) if default_accs else []
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('INSERT INTO bookmarks (url, remark, target_accounts, done_accounts, enable_stats) VALUES (?, ?, ?, ?, 1)', 
+              (url, remark, json.dumps(default_accs), '[]'))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
 @app.route('/toggle_stats/<int:id>')
-def toggle_stats(id): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('UPDATE bookmarks SET enable_stats = NOT enable_stats WHERE id = ?', (id,)); conn.commit(); conn.close(); return redirect(url_for('index'))
+def toggle_stats(id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE bookmarks SET enable_stats = NOT enable_stats WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
 @app.route('/update_item_accounts/<int:id>', methods=['POST'])
-def update_item_accounts(id): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('UPDATE bookmarks SET target_accounts = ? WHERE id = ?', (json.dumps([x.strip() for x in request.form['target_accounts_str'].replace('，', ',').split(',') if x.strip()]), id)); conn.commit(); conn.close(); return redirect(url_for('index'))
+def update_item_accounts(id):
+    raw_str = request.form['target_accounts_str']
+    new_list = [x.strip() for x in raw_str.replace('，', ',').split(',') if x.strip()]
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE bookmarks SET target_accounts = ? WHERE id = ?', (json.dumps(new_list), id))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
 @app.route('/update_progress/<int:id>', methods=['POST'])
-def update_progress(id): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('UPDATE bookmarks SET done_accounts = ? WHERE id = ?', (json.dumps(request.form.getlist('done_accounts')), id)); conn.commit(); conn.close(); return redirect(url_for('index'))
+def update_progress(id):
+    done_accounts = request.form.getlist('done_accounts')
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('UPDATE bookmarks SET done_accounts = ? WHERE id = ?', (json.dumps(done_accounts), id))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
 @app.route('/delete/<int:id>')
-def delete_entry(id): conn = sqlite3.connect(DB_FILE); c = conn.cursor(); c.execute('DELETE FROM bookmarks WHERE id = ?', (id,)); conn.commit(); conn.close(); return redirect(url_for('index'))
+def delete_entry(id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute('DELETE FROM bookmarks WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     init_db()
