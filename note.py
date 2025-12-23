@@ -22,15 +22,28 @@ def allowed_file(filename):
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
+    # 1. 主任务表
     c.execute('''CREATE TABLE IF NOT EXISTS bookmarks (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT, remark TEXT, target_accounts TEXT, done_accounts TEXT, enable_stats INTEGER DEFAULT 1)''')
+    # 2. 设置表
     c.execute('''CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)''')
+    # 3. 账户展馆表
     c.execute('''CREATE TABLE IF NOT EXISTS profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, avatar TEXT, remark TEXT, account_number TEXT, link TEXT)''')
+    # 4. 特别记事表
     c.execute('''CREATE TABLE IF NOT EXISTS special_notes (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT, remark TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
+    # 字段迁移检查
     try: c.execute('ALTER TABLE profiles ADD COLUMN account_number TEXT')
     except: pass
     try: c.execute('ALTER TABLE profiles ADD COLUMN link TEXT')
     except: pass
+    
+    # 新增：排序字段 sort_order
+    try: 
+        c.execute('ALTER TABLE bookmarks ADD COLUMN sort_order INTEGER')
+        # 如果是新加的字段，默认把 id 赋值给 sort_order，保证初始顺序
+        c.execute('UPDATE bookmarks SET sort_order = id WHERE sort_order IS NULL')
+    except: 
+        pass
         
     c.execute('SELECT value FROM settings WHERE key = ?', ('global_accounts',))
     if c.fetchone() is None:
@@ -163,21 +176,14 @@ HTML_TEMPLATE = '''
         .profile-card:hover .action-icon { opacity: 0.6; }
         .action-icon:hover { opacity: 1; }
 
-        /* 特别记事样式 (Pro) */
         .header-special { color: var(--special-color); border-bottom-color: var(--special-color); }
         .special-list { display: flex; flex-direction: column; gap: 15px; }
         .special-card { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; position: relative; border-left: 4px solid var(--special-color); transition: 0.2s; }
         .special-card:hover { transform: translateX(-2px); box-shadow: 0 5px 15px var(--shadow); }
-        
         .special-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
-        
-        /* 备注(现用作内容) - 大字，支持换行 */
         .special-remark-text { font-size: 1.1em; font-weight: bold; color: var(--right-text); white-space: pre-wrap; flex: 1; line-height: 1.5; }
-        
-        /* 内容(现用作链接) - 小字 */
         .special-link-text { font-size: 0.9em; color: var(--right-text); opacity: 0.8; word-break: break-all; flex: 1; font-family: monospace; }
         .special-link-text a { color: var(--highlight); text-decoration: none; font-weight: bold; }
-        
         .special-actions-footer { display: flex; gap: 10px; justify-content: flex-end; align-items: center; margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 8px; }
         .btn-del-special { color: #e74c3c; cursor: pointer; font-weight: bold; opacity: 0.6; font-size: 0.9em; }
         .btn-del-special:hover { opacity: 1; }
@@ -196,7 +202,6 @@ HTML_TEMPLATE = '''
         .addr-card { background: var(--addr-card-bg); padding: 12px; border-radius: 6px; font-size: 0.85em; border: 1px solid rgba(128,128,128,0.2); }
         .addr-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed; padding-bottom: 5px; border-color: rgba(128,128,128,0.3); }
         .addr-name { font-size: 1.2em; font-weight: 800; color: var(--addr-name-color); } 
-        
         .addr-row { display: flex; align-items: center; gap: 5px; margin-top: 6px; color: var(--addr-text); width: 100%; }
         .addr-val { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: monospace; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px; color: #ccc; }
         .btn-copy-icon { flex-shrink: 0; background: none; border: 1px solid #576d80; color: #bdc3c7; cursor: pointer; border-radius: 3px; font-size: 0.8em; padding: 1px 6px; white-space: nowrap; }
@@ -220,10 +225,15 @@ HTML_TEMPLATE = '''
         .list-item.completed { border-left: 5px solid #2ecc71; background: rgba(46, 204, 113, 0.1); }
 
         .item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
-        .content-wrapper { flex: 1; margin-right: 15px; }
-        .link-row { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; flex-wrap: wrap; }
-        .url-link { color: #2980b9; text-decoration: none; font-weight: 600; font-size: 1.1em; word-break: break-all; }
-        .btn-copy { background: #ecf0f1; border: 1px solid #bdc3c7; color: #555; border-radius: 4px; padding: 2px 8px; font-size: 0.8em; cursor: pointer; display: inline-flex; align-items: center; }
+        .content-wrapper { flex: 1; margin-right: 15px; display: flex; flex-direction: column; gap: 5px; }
+        
+        /* 调整后的标题(备注) */
+        .item-remark { font-size: 1.2em; font-weight: bold; color: var(--text-color); margin-bottom: 2px; }
+        /* 调整后的详情(链接) */
+        .item-url { font-size: 0.9em; color: #666; word-break: break-all; }
+        .url-link { color: #2980b9; text-decoration: none; font-weight: normal; }
+        
+        .btn-copy { background: #ecf0f1; border: 1px solid #bdc3c7; color: #555; border-radius: 4px; padding: 2px 8px; font-size: 0.8em; cursor: pointer; display: inline-flex; align-items: center; margin-left: 5px; }
         .btn-copy.copied { background: #2ecc71; color: white; border-color: #2ecc71; }
         
         .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
@@ -232,6 +242,10 @@ HTML_TEMPLATE = '''
         .btn-edit-info { background: #f39c12; }
         .btn-del { background: #e74c3c; margin-left: auto; }
         .btn-update { background: #3498db; color: white; padding: 6px 15px; border: none; border-radius: 4px; cursor: pointer; }
+        
+        /* 排序按钮 */
+        .btn-move { background: none; border: 1px solid var(--border-color); cursor: pointer; padding: 2px 6px; border-radius: 4px; color: var(--text-color); font-size: 1.1em; opacity: 0.6; transition: 0.2s; }
+        .btn-move:hover { opacity: 1; background: var(--btn-bg); }
 
         .btn-copy-mini { font-size: 0.9em; cursor: pointer; color: inherit; border: none; background: none; padding: 0 2px; opacity: 0.6; }
         .btn-copy-mini:hover { opacity: 1; color: var(--highlight); }
@@ -241,7 +255,6 @@ HTML_TEMPLATE = '''
         .add-profile-box { margin-top: 10px; padding: 15px; background: var(--input-bg); border: 1px dashed var(--border-color); border-radius: 8px; }
         .file-input { width: 100%; margin: 5px 0; font-size: 0.8em; }
         
-        /* 大输入框样式 */
         .special-textarea { width: 100%; height: 100px; resize: vertical; font-family: sans-serif; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-color); margin-bottom: 8px; font-size: 1em; }
         
         .edit-area { margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.02); display: none; }
@@ -337,7 +350,7 @@ HTML_TEMPLATE = '''
                 </form>
             </div>
         </div>
-        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v4.14 (Pro)</div>
+        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v4.15 (Sort+)</div>
     </aside>
 
     <aside class="sidebar-right" id="profileDrawer">
@@ -402,7 +415,6 @@ HTML_TEMPLATE = '''
                     <button class="btn-copy-mini" onclick="copyContent('{{ s.remark|replace("'", "\\'")|replace('\n', '\\n') }}', this)">📋</button>
                 </div>
                 {% endif %}
-                
                 {% if s.content %}
                 <div class="special-row">
                     <div class="special-link-text">
@@ -415,7 +427,6 @@ HTML_TEMPLATE = '''
                     <button class="btn-copy-mini" onclick="copyContent('{{ s.content|replace("'", "\\'") }}', this)">📋</button>
                 </div>
                 {% endif %}
-                
                 <div class="special-actions-footer">
                     <span class="action-icon icon-edit btn-edit-special" 
                           onclick="openEditSpecialModal({{ s.id }}, '{{ s.content|replace("'", "\\'") }}', '{{ s.remark|replace("'", "\\'")|replace('\n', '\\n') }}')">✏️ 修改</span>
@@ -448,17 +459,29 @@ HTML_TEMPLATE = '''
                 <li class="list-item {% if not item.enable_stats %}stats-off{% elif item.is_complete %}completed{% else %}pending{% endif %}">
                     <div class="item-header">
                         <div class="content-wrapper">
-                            <div class="link-row">
+                            {% if item.remark %}
+                                <div class="item-remark">{{ item.remark }}</div>
+                            {% endif %}
+                            
+                            <div class="item-url">
                                 <a href="{{ item.url }}" class="url-link" target="_blank">{{ item.url }}</a>
-                                <button class="btn-copy" data-url="{{ item.url }}" onclick="copyContent(this.dataset.url, this)" title="复制内容">📋</button>
+                                <button class="btn-copy" data-url="{{ item.url }}" onclick="copyContent(this.dataset.url, this)">📋</button>
                             </div>
-                            {% if item.remark %}<span class="remark">{{ item.remark }}</span>{% endif %}
                         </div>
-                        {% if item.enable_stats %}
-                            {% if item.is_complete %}<span class="badge badge-success">✅ 已完成</span>
-                            {% else %}<span class="badge badge-warning">⏳ {{ item.done_count }} / {{ item.total_count }}</span>{% endif %}
-                        {% else %}<span class="badge badge-gray">⚪ 统计关闭</span>{% endif %}
+                        
+                        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px;">
+                            {% if item.enable_stats %}
+                                {% if item.is_complete %}<span class="badge badge-success">✅ 已完成</span>
+                                {% else %}<span class="badge badge-warning">⏳ {{ item.done_count }} / {{ item.total_count }}</span>{% endif %}
+                            {% else %}<span class="badge badge-gray">⚪ 统计关闭</span>{% endif %}
+                            
+                            <div style="display:flex; gap:2px;">
+                                <a href="/move/{{ item.id }}/up" class="btn-move" title="上移">⬆️</a>
+                                <a href="/move/{{ item.id }}/down" class="btn-move" title="下移">⬇️</a>
+                            </div>
+                        </div>
                     </div>
+                    
                     <div class="toolbar">
                         <a href="/toggle_stats/{{ item.id }}" class="btn-sm btn-toggle">{% if item.enable_stats %}👁️ 隐藏{% else %}📊 开启统计{% endif %}</a>
                         {% if item.enable_stats %}
@@ -467,6 +490,7 @@ HTML_TEMPLATE = '''
                         {% endif %}
                         <span class="btn-sm btn-del" onclick="triggerAuth('delete_task', {{ item.id }})">🗑️ 删除</span>
                     </div>
+                    
                     {% if item.enable_stats %}
                         <form action="/update_item_accounts/{{ item.id }}" method="post" id="edit-{{ item.id }}" class="edit-area">
                             <textarea name="target_accounts_str">{{ item.target_accounts_str }}</textarea>
@@ -510,7 +534,6 @@ HTML_TEMPLATE = '''
     <div class="modal-overlay" id="editProfileModal">
         <div class="modal-box"><h3>✏️ 修改展示</h3><form id="editProfileForm" action="/edit_profile" method="post" onsubmit="event.preventDefault(); triggerAuth('edit_profile', this);"><input type="hidden" name="id" id="edit_profile_id"><div class="modal-input-group"><label class="modal-input-label">昵称:</label><input type="text" name="name" id="edit_profile_name" class="modal-input" required></div><div class="modal-input-group"><label class="modal-input-label">备注:</label><input type="text" name="remark" id="edit_profile_remark" class="modal-input"></div><div class="modal-input-group"><label class="modal-input-label">账户号:</label><input type="text" name="account_number" id="edit_profile_acc" class="modal-input"></div><div class="modal-input-group"><label class="modal-input-label">链接:</label><input type="text" name="link" id="edit_profile_link" class="modal-input"></div><div class="modal-buttons"><button type="button" class="btn-cancel" onclick="closeModal('editProfileModal')">取消</button><button type="submit" class="btn-confirm">保存</button></div></form></div>
     </div>
-    
     <div class="modal-overlay" id="editSpecialModal">
         <div class="modal-box"><h3>✏️ 修改特别记事</h3><form id="editSpecialForm" action="/edit_special_note" method="post" onsubmit="event.preventDefault(); triggerAuth('edit_special_note', this);">
             <input type="hidden" name="id" id="edit_special_id">
@@ -594,7 +617,8 @@ def index():
     except:
         special_notes = []
         
-    c.execute('SELECT id, url, remark, target_accounts, done_accounts, enable_stats FROM bookmarks ORDER BY id DESC')
+    # 修改：按 sort_order 倒序排列，如果 sort_order 相同或为空则按 id 倒序
+    c.execute('SELECT id, url, remark, target_accounts, done_accounts, enable_stats FROM bookmarks ORDER BY sort_order DESC, id DESC')
     items = []
     
     for row in c.fetchall():
@@ -771,10 +795,17 @@ def delete_addr(index):
 def add_entry():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
+    
+    # 插入时获取当前最大的 sort_order，新项目排最前面
+    c.execute('SELECT MAX(sort_order) FROM bookmarks')
+    max_sort = c.fetchone()[0]
+    new_sort = (max_sort + 1) if max_sort is not None else 1
+    
     c.execute('SELECT value FROM settings WHERE key = ?', ('global_accounts',))
     default_accs = json.loads(c.fetchone()[0])
-    c.execute('INSERT INTO bookmarks (url, remark, target_accounts, done_accounts, enable_stats) VALUES (?, ?, ?, ?, 1)', 
-              (request.form['url'], request.form['remark'], json.dumps(default_accs), '[]'))
+    
+    c.execute('INSERT INTO bookmarks (url, remark, target_accounts, done_accounts, enable_stats, sort_order) VALUES (?, ?, ?, ?, 1, ?)', 
+              (request.form['url'], request.form['remark'], json.dumps(default_accs), '[]', new_sort))
     conn.commit()
     conn.close()
     return redirect(url_for('index'))
@@ -813,6 +844,40 @@ def delete_entry(id):
     c = conn.cursor()
     c.execute('DELETE FROM bookmarks WHERE id = ?', (id,))
     conn.commit()
+    conn.close()
+    return redirect(url_for('index'))
+
+# --- 新增：排序路由 ---
+@app.route('/move/<int:id>/<direction>')
+def move_item(id, direction):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    
+    # 获取当前项目
+    c.execute('SELECT id, sort_order FROM bookmarks WHERE id = ?', (id,))
+    current = c.fetchone()
+    
+    if current:
+        current_id, current_sort = current
+        if current_sort is None: current_sort = 0 # 防空
+        
+        # 找目标：上移找比它大的最小数，下移找比它小的最大数
+        if direction == 'up':
+            c.execute('SELECT id, sort_order FROM bookmarks WHERE sort_order > ? ORDER BY sort_order ASC LIMIT 1', (current_sort,))
+        else:
+            c.execute('SELECT id, sort_order FROM bookmarks WHERE sort_order < ? ORDER BY sort_order DESC LIMIT 1', (current_sort,))
+            
+        target = c.fetchone()
+        
+        if target:
+            target_id, target_sort = target
+            if target_sort is None: target_sort = 0
+            
+            # 交换 sort_order
+            c.execute('UPDATE bookmarks SET sort_order = ? WHERE id = ?', (target_sort, current_id))
+            c.execute('UPDATE bookmarks SET sort_order = ? WHERE id = ?', (current_sort, target_id))
+            conn.commit()
+            
     conn.close()
     return redirect(url_for('index'))
 
