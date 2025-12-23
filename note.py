@@ -22,25 +22,18 @@ def allowed_file(filename):
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    # 1. 主任务表
     c.execute('''CREATE TABLE IF NOT EXISTS bookmarks (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT, remark TEXT, target_accounts TEXT, done_accounts TEXT, enable_stats INTEGER DEFAULT 1)''')
-    # 2. 设置表
     c.execute('''CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)''')
-    # 3. 账户展馆表
     c.execute('''CREATE TABLE IF NOT EXISTS profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, avatar TEXT, remark TEXT, account_number TEXT, link TEXT)''')
-    # 4. 特别记事表
     c.execute('''CREATE TABLE IF NOT EXISTS special_notes (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT, remark TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
-    # 字段迁移检查
     try: c.execute('ALTER TABLE profiles ADD COLUMN account_number TEXT')
     except: pass
     try: c.execute('ALTER TABLE profiles ADD COLUMN link TEXT')
     except: pass
     
-    # 新增：排序字段 sort_order
     try: 
         c.execute('ALTER TABLE bookmarks ADD COLUMN sort_order INTEGER')
-        # 如果是新加的字段，默认把 id 赋值给 sort_order，保证初始顺序
         c.execute('UPDATE bookmarks SET sort_order = id WHERE sort_order IS NULL')
     except: 
         pass
@@ -176,6 +169,7 @@ HTML_TEMPLATE = '''
         .profile-card:hover .action-icon { opacity: 0.6; }
         .action-icon:hover { opacity: 1; }
 
+        /* 特别记事样式 */
         .header-special { color: var(--special-color); border-bottom-color: var(--special-color); }
         .special-list { display: flex; flex-direction: column; gap: 15px; }
         .special-card { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; position: relative; border-left: 4px solid var(--special-color); transition: 0.2s; }
@@ -226,13 +220,9 @@ HTML_TEMPLATE = '''
 
         .item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
         .content-wrapper { flex: 1; margin-right: 15px; display: flex; flex-direction: column; gap: 5px; }
-        
-        /* 调整后的标题(备注) */
         .item-remark { font-size: 1.2em; font-weight: bold; color: var(--text-color); margin-bottom: 2px; }
-        /* 调整后的详情(链接) */
         .item-url { font-size: 0.9em; color: #666; word-break: break-all; }
         .url-link { color: #2980b9; text-decoration: none; font-weight: normal; }
-        
         .btn-copy { background: #ecf0f1; border: 1px solid #bdc3c7; color: #555; border-radius: 4px; padding: 2px 8px; font-size: 0.8em; cursor: pointer; display: inline-flex; align-items: center; margin-left: 5px; }
         .btn-copy.copied { background: #2ecc71; color: white; border-color: #2ecc71; }
         
@@ -243,9 +233,9 @@ HTML_TEMPLATE = '''
         .btn-del { background: #e74c3c; margin-left: auto; }
         .btn-update { background: #3498db; color: white; padding: 6px 15px; border: none; border-radius: 4px; cursor: pointer; }
         
-        /* 排序按钮 */
-        .btn-move { background: none; border: 1px solid var(--border-color); cursor: pointer; padding: 2px 6px; border-radius: 4px; color: var(--text-color); font-size: 1.1em; opacity: 0.6; transition: 0.2s; }
-        .btn-move:hover { opacity: 1; background: var(--btn-bg); }
+        /* 排序按钮 - 优化后的样式 */
+        .btn-move { background: transparent; border: 1px solid var(--border-color); color: #999; font-size: 0.8em; padding: 2px 8px; border-radius: 4px; text-decoration: none; transition: all 0.2s; display: inline-flex; justify-content: center; align-items: center; min-width: 20px; }
+        .btn-move:hover { background: var(--highlight); color: white; border-color: var(--highlight); }
 
         .btn-copy-mini { font-size: 0.9em; cursor: pointer; color: inherit; border: none; background: none; padding: 0 2px; opacity: 0.6; }
         .btn-copy-mini:hover { opacity: 1; color: var(--highlight); }
@@ -254,9 +244,7 @@ HTML_TEMPLATE = '''
 
         .add-profile-box { margin-top: 10px; padding: 15px; background: var(--input-bg); border: 1px dashed var(--border-color); border-radius: 8px; }
         .file-input { width: 100%; margin: 5px 0; font-size: 0.8em; }
-        
         .special-textarea { width: 100%; height: 100px; resize: vertical; font-family: sans-serif; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-color); margin-bottom: 8px; font-size: 1em; }
-        
         .edit-area { margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.02); display: none; }
         .edit-area textarea { width: 100%; padding: 5px; margin-bottom: 5px; border: 1px solid #ccc; font-family: monospace; }
         .stats-area { margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-color); }
@@ -350,7 +338,7 @@ HTML_TEMPLATE = '''
                 </form>
             </div>
         </div>
-        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v4.15 (Sort+)</div>
+        <div class="sidebar-desc" style="margin-top: auto; opacity: 0.5; text-align: center;">LegendVPS Tool v4.16 (Style+)</div>
     </aside>
 
     <aside class="sidebar-right" id="profileDrawer">
@@ -462,7 +450,6 @@ HTML_TEMPLATE = '''
                             {% if item.remark %}
                                 <div class="item-remark">{{ item.remark }}</div>
                             {% endif %}
-                            
                             <div class="item-url">
                                 <a href="{{ item.url }}" class="url-link" target="_blank">{{ item.url }}</a>
                                 <button class="btn-copy" data-url="{{ item.url }}" onclick="copyContent(this.dataset.url, this)">📋</button>
@@ -476,8 +463,8 @@ HTML_TEMPLATE = '''
                             {% else %}<span class="badge badge-gray">⚪ 统计关闭</span>{% endif %}
                             
                             <div style="display:flex; gap:2px;">
-                                <a href="/move/{{ item.id }}/up" class="btn-move" title="上移">⬆️</a>
-                                <a href="/move/{{ item.id }}/down" class="btn-move" title="下移">⬇️</a>
+                                <a href="/move/{{ item.id }}/up" class="btn-move" title="上移">▲</a>
+                                <a href="/move/{{ item.id }}/down" class="btn-move" title="下移">▼</a>
                             </div>
                         </div>
                     </div>
@@ -534,6 +521,7 @@ HTML_TEMPLATE = '''
     <div class="modal-overlay" id="editProfileModal">
         <div class="modal-box"><h3>✏️ 修改展示</h3><form id="editProfileForm" action="/edit_profile" method="post" onsubmit="event.preventDefault(); triggerAuth('edit_profile', this);"><input type="hidden" name="id" id="edit_profile_id"><div class="modal-input-group"><label class="modal-input-label">昵称:</label><input type="text" name="name" id="edit_profile_name" class="modal-input" required></div><div class="modal-input-group"><label class="modal-input-label">备注:</label><input type="text" name="remark" id="edit_profile_remark" class="modal-input"></div><div class="modal-input-group"><label class="modal-input-label">账户号:</label><input type="text" name="account_number" id="edit_profile_acc" class="modal-input"></div><div class="modal-input-group"><label class="modal-input-label">链接:</label><input type="text" name="link" id="edit_profile_link" class="modal-input"></div><div class="modal-buttons"><button type="button" class="btn-cancel" onclick="closeModal('editProfileModal')">取消</button><button type="submit" class="btn-confirm">保存</button></div></form></div>
     </div>
+    
     <div class="modal-overlay" id="editSpecialModal">
         <div class="modal-box"><h3>✏️ 修改特别记事</h3><form id="editSpecialForm" action="/edit_special_note" method="post" onsubmit="event.preventDefault(); triggerAuth('edit_special_note', this);">
             <input type="hidden" name="id" id="edit_special_id">
